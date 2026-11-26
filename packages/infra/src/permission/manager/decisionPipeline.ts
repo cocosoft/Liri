@@ -136,7 +136,8 @@ export async function checkPermissionInner(
   let decision: PermissionDecision;
   switch (effectiveMode) {
     case PermissionMode.BYPASS:
-      decision = handleBypassPermissions();
+      // D4（2026-11-27）：传入工具与入参，让"受保护路径地板"在 bypass 档也生效
+      decision = handleBypassPermissions(toolOrName, input);
       break;
     case PermissionMode.DONT_ASK:
       decision = await handleDontAsk(

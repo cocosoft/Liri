@@ -48,6 +48,28 @@ Orchestrator 只负责驱动循环、执行工具、感知结果，推理决策�
 - `simulate` 响应的 `consistentWithExecution`：`false` = 模拟与执行读的不是同一运行时（结论不可信）；
   `null` = 执行侧尚未装配，无法核对。
 
+#### 1.4.2 写类工具的路径地板（D4，2026-11-27）
+
+权限规则是**用户自写正则**，不能当边界保证。写类工具（`file_write` / `file_edit` / `file_convert` /
+`write_project_file`）另有两条路径判据，均在**权限层**实现（`permission/guards/pathBoundary.ts`），
+故 `simulate` 与真实执行同源：
+
+| 判据 | 结论 | 生效档位 | 复用 |
+|---|---|---|---|
+| 目标路径命中受保护清单（shell rc、`/etc` 敏感文件、`~/.ssh`/`~/.aws`/`~/.kube`/`~/.gnupg`、Windows SAM/hosts/Tasks…） | **deny**（先于一切规则，含 allow 规则与 bypass） | 五档一致 | `security/files/ProtectedPaths`（`isWriteProtected`） |
+| 目标路径在**已知工作区根之外**（且不在受保护清单） | **ask**（需显式批准） | `default` / `auto` | `environment/paths` 的 `isPathWithin` |
+
+- **不新增敏感表**：清单唯一真源仍是 `ProtectedPaths`（CS01）。
+- 越界写只 ask 不 deny：temp / 附件目录等合法写入仍需可用；`plan` 本就每步询问，
+  `dontAsk` / `bypass` 的语义是"不询问 / 不检查"，故不在其处改判（如实记录，不假装覆盖）。
+- 相对路径按**第一个工作区根**解析；未给工作区根 ⇒ 不做边界判定（受保护路径判据不受影响）。
+  根来源：会话 `metadata.workspacePath`（首根）+ `metadata.workspaceRoots`（追加根），
+  由 Agent 主链（`chat/services/permissionGate.ts`）与 HTTP 直调（`CoreAPIImpl.executeTool`）同源注入；
+  `workspaceStatus=unbound` 的会话没有根 ⇒ 只受"受保护路径"地板约束。
+- 读类工具本期不纳入（读系统文件是常见调试动作）；`bash` / `powershell` 的路径判据仍由
+  工具层 `bashSecurityGate` 承担（刻意分层，CD07）。
+
+
 ### 1.5 模型数据唯一源
 
 - `ModelConfigs.ts` 是唯一数据源

@@ -53,6 +53,10 @@ import {
 } from '../types/PermissionDecision';
 import { PermissionBehavior } from '../types/PermissionRule';
 import { denyByRule } from './denyByRule';
+import {
+  evaluateOutOfWorkspaceWrite,
+  evaluateProtectedWritePath,
+} from '../guards/pathBoundary';
 import { bypassPermissionsKillswitch } from '../utils/BypassPermissionsKillswitch';
 import {
   defaultAllowWarnedTools,
@@ -82,11 +86,72 @@ export interface ModeHandlerDeps {
   }>;
 }
 
+/**
+ * D4（2026-11-27）：写类工具的**路径地板** —— 受保护路径一律 deny。
+ *
+ * 放在每个档位**最前面**（含 bypass / dontAsk）：它不参与"规则 vs 档位"的取舍，
+ * 而是与 `deny 先于一切 allow` 同级的硬约束（安全地板不随档位放宽）。
+ */
+function protectedWriteDeny(
+  toolName: string,
+  input: Record<string, unknown>
+): PermissionDecision | null {
+  const hit = evaluateProtectedWritePath(toolName, input);
+  if (!hit) return null;
+  logger.warn('写入被拒绝：命中受保护路径', {
+    toolName,
+    path: hit.path,
+    reason: hit.reason,
+  });
+  return createDenyDecision(`写入被拒绝：${hit.reason}`);
+}
+
+/**
+ * D4（2026-11-27）：写类工具写到**工作区之外** ⇒ ask（需显式批准）。
+ *
+ * 插在"内容级 deny 之后、一切 ask/allow 之前"：deny 仍然优先，ask 只是新增一道确认。
+ * `plan` 本来就每步询问、`dontAsk` / `bypass` 的语义就是不询问 ⇒ 只由 default / auto 调用。
+ */
+function outOfWorkspaceAsk(
+  toolName: string,
+  input: Record<string, unknown>,
+  context: PermissionContext
+): PermissionDecision | null {
+  const roots =
+    context.workspaceRoots && context.workspaceRoots.length > 0
+      ? context.workspaceRoots
+      : context.workspacePath
+        ? [context.workspacePath]
+        : [];
+  const hit = evaluateOutOfWorkspaceWrite(toolName, input, roots);
+  if (!hit) return null;
+  logger.info('写入目标在工作区之外，需确认', {
+    toolName,
+    path: hit.path,
+    workspaceRoots: hit.workspaceRoots,
+  });
+  return createAskDecision(
+    `写入目标在工作区之外（${hit.path}），需要确认`
+  );
+}
+
   /**
    * 处理绕过权限检查模式
    * @returns 权限决策
    */
-  export function handleBypassPermissions(): PermissionDecision {
+  export function handleBypassPermissions(
+    toolOrName?: Tool | string,
+    input: Record<string, unknown> = {}
+  ): PermissionDecision {
+    // D4（2026-11-27）：安全地板先于 killswitch —— 受保护路径在 bypass 档同样不得写入
+    const protectedDeny =
+      toolOrName === undefined
+        ? null
+        : protectedWriteDeny(
+            typeof toolOrName === 'string' ? toolOrName : toolOrName.name,
+            input
+          );
+    if (protectedDeny) return protectedDeny;
     // F12（2026-11-22）：接入 killswitch —— 显式禁用（运行时 `disable()` 或
     // `PERMISSION_BYPASS_DISABLED=true`）后不得继续无条件放行。
     const envDisabled =
@@ -116,6 +181,10 @@ export interface ModeHandlerDeps {
   ): Promise<PermissionDecision> {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
+
+    // D4（2026-11-27）：受保护路径地板 —— 先于一切规则（含允许规则与指纹放行）
+    const protectedDeny = protectedWriteDeny(toolName, input);
+    if (protectedDeny) return protectedDeny;
 
     // 1. A 体系工具级 deny：deny 永远优先于任何 allow（含 RBAC allow）
     // P0-2（2026-11-11）：**显式 deny 不因「连续拒绝」升级为 ask** —— deny 可批准
@@ -237,6 +306,10 @@ export interface ModeHandlerDeps {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
 
+    // D4（2026-11-27）：受保护路径地板 —— 先于一切规则
+    const protectedDeny = protectedWriteDeny(toolName, input);
+    if (protectedDeny) return protectedDeny;
+
     // 使用新的规则管理器检查
     const denyRule = deps.ruleManager.getDenyRuleForTool(toolName, ruleContext);
     if (denyRule) {
@@ -287,6 +360,10 @@ export interface ModeHandlerDeps {
       deps.denialTracker.trackDenial(toolName, context.sessionId);
       return denyByRule(toolName, matchingDenyRule, approvalFingerprint);
     }
+
+    // D4（2026-11-27）：工作区外写入 ⇒ ask（排在内容级 deny 之后、一切 ask/allow 之前）
+    const outOfWorkspace = outOfWorkspaceAsk(toolName, input, context);
+    if (outOfWorkspace) return outOfWorkspace;
 
     const askRule = deps.ruleManager.getAskRuleForTool(toolName, ruleContext);
     if (askRule) {
@@ -409,6 +486,10 @@ export interface ModeHandlerDeps {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
 
+    // D4（2026-11-27）：受保护路径地板 —— "每步确认"也不得把受保护写入变成"可批准"
+    const protectedDenyPlan = protectedWriteDeny(toolName, input);
+    if (protectedDenyPlan) return protectedDenyPlan;
+
     // P0-4（2026-11-11）：本档此前**无条件 ask** ⇒ 显式 deny / 命令黑名单 / RBAC deny
     // 全部被绕过（"每步确认"比 default 更宽松，且把禁止项变成可批准）。
     // 现在：硬 deny 仍然 deny，"每步确认"只作用于**未被禁止**的调用。
@@ -473,6 +554,10 @@ export interface ModeHandlerDeps {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
 
+    // D4（2026-11-27）：受保护路径地板 —— 先于一切规则
+    const protectedDenyAuto = protectedWriteDeny(toolName, input);
+    if (protectedDenyAuto) return protectedDenyAuto;
+
     // 检查规则
     // P0-2（2026-11-11）：显式 deny 不因连续拒绝升级为 ask（同上）。
     const denyRule = deps.ruleManager.getDenyRuleForTool(toolName, ruleContext);
@@ -526,6 +611,10 @@ export interface ModeHandlerDeps {
       deps.denialTracker.trackDenial(toolName, context.sessionId);
       return denyByRule(toolName, matchingDenyRule, approvalFingerprint);
     }
+
+    // D4（2026-11-27）：工作区外写入 ⇒ ask（与 default 档同序：deny 之后、ask/allow 之前）
+    const outOfWorkspaceAuto = outOfWorkspaceAsk(toolName, input, context);
+    if (outOfWorkspaceAuto) return outOfWorkspaceAuto;
 
     const askRule = deps.ruleManager.getAskRuleForTool(toolName, ruleContext);
     if (askRule) {

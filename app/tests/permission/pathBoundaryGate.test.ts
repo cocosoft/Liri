@@ -1,0 +1,209 @@
+/**
+ * D4（2026-11-27）：写类工具的**路径硬闸**。
+ *
+ * 两条判据（都在权限层，simulate 与真实执行同源）：
+ * 1. 受保护路径（`security/files/ProtectedPaths` 的清单）⇒ **deny**，五档一致（含 bypass）；
+ * 2. 工作区外写入 ⇒ **ask**，仅 `default` / `auto`（`plan` 本已每步询问，`dontAsk`/`bypass` 语义是不询问）。
+ *
+ * 立论：内容级规则是用户自写正则，不能当边界保证；此前写类工具只有"规则/档位"，
+ * 一条误配 allow 就能写进 `~/.ssh` / `/etc` / Windows SAM 这类位置。
+ */
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { homedir } from 'node:os';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { PermissionManager } from '@openliri/infra/permission/PermissionManager';
+import type { PermissionMode } from '@openliri/infra/permission/PermissionMode';
+import {
+  evaluateOutOfWorkspaceWrite,
+  evaluateProtectedWritePath,
+} from '@openliri/infra/permission/guards/pathBoundary';
+import type { ToolPermissionResult } from '@openliri/infra/permission/manager/toolPermission';
+import {
+  PermissionBehavior,
+  PermissionRuleSource,
+  createPermissionRule,
+} from '@openliri/infra/permission/types/PermissionRule';
+
+type Decision = 'allow' | 'ask' | 'deny';
+
+function toDecision(result: ToolPermissionResult): Decision {
+  if (result.allowed) return 'allow';
+  return result.decision?.behavior === 'ask' ? 'ask' : 'deny';
+}
+
+/** 受保护文件（跨平台清单里的家目录项，必然存在且不受工作区影响） */
+const PROTECTED = join(homedir(), '.bashrc');
+
+describe('D4 判定单元：evaluateProtectedWritePath', () => {
+  it('写类工具 + 受保护路径 ⇒ 命中', () => {
+    const hit = evaluateProtectedWritePath('file_write', {
+      file_path: PROTECTED,
+      content: 'x',
+    });
+    expect(hit).not.toBeNull();
+    expect(hit?.path.toLowerCase()).toContain('.bashrc');
+  });
+
+  it('非写类工具 / 普通路径 ⇒ 不命中（零行为变更）', () => {
+    expect(
+      evaluateProtectedWritePath('file_read', { file_path: PROTECTED })
+    ).toBeNull();
+    expect(
+      evaluateProtectedWritePath('file_write', {
+        file_path: join(tmpdir(), 'normal.txt'),
+        content: 'x',
+      })
+    ).toBeNull();
+  });
+});
+
+describe('D4 判定单元：evaluateOutOfWorkspaceWrite', () => {
+  const ws = join(tmpdir(), 'd4-ws');
+
+  it('工作区外 ⇒ 命中；界内 ⇒ 不命中', () => {
+    expect(
+      evaluateOutOfWorkspaceWrite(
+        'file_write',
+        { file_path: join(tmpdir(), 'out.txt') },
+        [ws]
+      )
+    ).not.toBeNull();
+    expect(
+      evaluateOutOfWorkspaceWrite(
+        'file_write',
+        { file_path: join(ws, 'in.txt') },
+        [ws]
+      )
+    ).toBeNull();
+  });
+
+  it('相对路径按工作区根解析（`in.txt` 视为界内）', () => {
+    expect(
+      evaluateOutOfWorkspaceWrite('file_write', { file_path: 'in.txt' }, [ws])
+    ).toBeNull();
+  });
+
+  it('未给工作区根 ⇒ 不判定（不误报 ask）', () => {
+    expect(
+      evaluateOutOfWorkspaceWrite(
+        'file_write',
+        { file_path: join(tmpdir(), 'out.txt') },
+        []
+      )
+    ).toBeNull();
+  });
+
+  it('受保护路径不算"越界 ask"（由 deny 闸负责）', () => {
+    expect(
+      evaluateOutOfWorkspaceWrite('file_write', { file_path: PROTECTED }, [ws])
+    ).toBeNull();
+  });
+});
+
+describe('D4 集成：五档一致 + simulate 同源', () => {
+  let dir: string;
+  let manager: PermissionManager;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'liri-d4-'));
+    manager = new PermissionManager();
+    manager.getRuleManager().setRuleSource(join(dir, 'tool_rules.json'));
+    manager.getRuleManager().loadRules();
+    manager.setToolPermissionContext({
+      alwaysAllowRules: {},
+      alwaysDenyRules: {},
+      alwaysAskRules: {},
+    });
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  const writeProtected = { file_path: PROTECTED, content: 'x' };
+  const modes: PermissionMode[] = [
+    'default',
+    'auto',
+    'plan',
+    'dontAsk',
+    'bypass',
+  ];
+
+  for (const mode of modes) {
+    it(`${mode} 档：写受保护路径 ⇒ deny（地板不随档位放宽）`, async () => {
+      manager.setMode(mode);
+      const result = await manager.checkPermissionForTool(
+        'file_write',
+        writeProtected
+      );
+      expect(toDecision(result)).toBe('deny');
+    });
+  }
+
+  it('default 档：工作区外写入 ⇒ ask（不是静默放行）', async () => {
+    manager.setMode('default');
+    const result = await manager.checkPermissionForTool(
+      'file_write',
+      { file_path: join(tmpdir(), 'outside.txt'), content: 'x' },
+      { workspaceRoots: [join(dir, 'ws')] }
+    );
+    expect(toDecision(result)).toBe('ask');
+  });
+
+  it('default 档：工作区内写入 ⇒ allow（正常流程不被拦截）', async () => {
+    const ws = join(dir, 'ws');
+    manager.setMode('default');
+    const result = await manager.checkPermissionForTool(
+      'file_write',
+      { file_path: join(ws, 'in.txt'), content: 'x' },
+      { workspaceRoots: [ws] }
+    );
+    expect(toDecision(result)).toBe('allow');
+  });
+
+  it('显式工具级 allow 规则不能越过受保护路径地板', async () => {
+    manager.setMode('default');
+    manager.getRuleManager().addRule(
+      createPermissionRule({
+        behavior: PermissionBehavior.ALLOW,
+        toolName: 'file_write',
+        source: PermissionRuleSource.RULE_STORE,
+      })
+    );
+
+    const executed = await manager.checkPermissionForTool(
+      'file_write',
+      writeProtected
+    );
+    const simulated = await manager.simulatePermission({
+      toolName: 'file_write',
+      input: writeProtected,
+      mode: 'default',
+    });
+
+    expect(toDecision(executed)).toBe('deny');
+    expect(simulated.decision).toBe('deny');
+  });
+
+  it('simulate 与真实执行对"工作区外 ⇒ ask"同结论', async () => {
+    manager.setMode('default');
+    const input = { file_path: join(tmpdir(), 'outside.txt'), content: 'x' };
+    const roots = [join(dir, 'ws')];
+
+    const simulated = await manager.simulatePermission({
+      toolName: 'file_write',
+      input,
+      mode: 'default',
+      workspaceRoots: roots,
+    });
+    const executed = await manager.checkPermissionForTool('file_write', input, {
+      workspaceRoots: roots,
+    });
+
+    expect(simulated.decision).toBe('ask');
+    expect(toDecision(executed)).toBe('ask');
+  });
+});

@@ -413,6 +413,13 @@ export class SessionAgentOps {
         .getToolManager()
         .getInner()
         .getTool(toolCall.name);
+      // D4（2026-11-27）：把会话工作区根带进授权上下文。
+      // 否则写类工具的「工作区外 ⇒ ask」判据在 HTTP 直调路径上拿不到根，只能跳过
+      // （真机实测：工作区外的 file_write 被静默放行）。口径与 `resolveWorkspaceStatus`
+      // 同源（`metadata.workspacePath` 首根 + `metadata.workspaceRoots` 追加根）。
+      const sessionRoots = resolveWorkspaceStatus(
+        this.deps.getSessionManager().getSession(sessionId)?.metadata
+      ).roots;
       const authorization = await authorizeToolCall(
         permissionManager as ToolPermissionPort,
         {
@@ -428,6 +435,13 @@ export class SessionAgentOps {
             userRole: getEffectivePermissionRole() ?? undefined,
             // P2-6（2026-11-11）：RBAC 按角色并集判定（多角色用户全部绑定生效）
             userRoles: getEffectivePermissionRoles(),
+            // D4：工作区边界（缺省 ⇒ 权限层不做边界判定，受保护路径地板不受影响）
+            ...(sessionRoots.length > 0
+              ? {
+                  workspaceRoots: sessionRoots,
+                  workspacePath: sessionRoots[0],
+                }
+              : {}),
           },
         }
       );

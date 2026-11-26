@@ -105,7 +105,8 @@ describe('HTTP/CoreAPI 路径权限门（B2）', () => {
           },
         }) as never,
       getChatManager: () => ({}) as never,
-      getSessionManager: () => ({}) as never,
+      // D4（2026-11-27）：执行入口会读会话 metadata 派生工作区根（无会话 ⇒ 无根 ⇒ 不做边界判定）
+      getSessionManager: () => ({ getSession: () => null }) as never,
       getSessionMessagesRead: () => ({}) as never,
       getMessageMutation: () => ({}) as never,
       getSessionTitling: () => ({}) as never,

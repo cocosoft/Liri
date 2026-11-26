@@ -7,7 +7,10 @@
  * 本用例锁住结构本身，防止后续"加一个入口"把组又撑回 9 项：
  *  ① 组数固定为 6，且顺序 = WORKBENCH_GROUPS_META；
  *  ② 每组 1..6 项（上限 6 是本次改造的核心约束）；
- *  ③ 条目总数 = 30 且 id 唯一（防止拆分时漏项/重复登记）；
+ *  ③ 条目总数 = 31 且 id 唯一（防止拆分时漏项/重复登记）；
+ *
+ * 数量沿革（如实）：拆分时 32 项；`def565eb0`（2026-11-25「收敛 /dream 双入口」）移除
+ * `wb-dream` 条目 ⇒ 31 项，本用例随之订正（此前仍按 32 断言 ⇒ 预存红）。
  *  ④ 工作台条目不得再借用 `settings.*` 命名（这些页只存在于工作台，名字应自己拥有）；
  *  ⑤ 同组内 `order.workbench` 唯一（否则渲染顺序依赖数组下标，改一行就乱）。
  */
@@ -20,7 +23,7 @@ import {
   workbenchGroups,
 } from "../navRegistry";
 
-/** 全模块可见（取 NAV_ENTRIES 里声明的全部 moduleId），确保拿到完整 32 项 */
+/** 全模块可见（取 NAV_ENTRIES 里声明的全部 moduleId），确保拿到完整 31 项 */
 const allModules = NAV_ENTRIES.filter((entry) => entry.moduleId).map(
   (entry) => ({
     id: entry.moduleId as string,
@@ -43,9 +46,9 @@ describe("工作台分组结构（6 组 × ≤6 项）", () => {
     }
   });
 
-  it("条目总数 32 且 id 唯一（拆分不漏项、不重复登记）", () => {
+  it("条目总数 31 且 id 唯一（拆分不漏项、不重复登记）", () => {
     const items = groups.flatMap((group) => group.items);
-    expect(items).toHaveLength(32);
+    expect(items).toHaveLength(31);
     expect(new Set(items.map((item) => item.id)).size).toBe(items.length);
     // 工作台条目必须是页面型（无 path 的动作型入口不该出现在目录页）
     expect(items.filter((item) => !item.path)).toEqual([]);

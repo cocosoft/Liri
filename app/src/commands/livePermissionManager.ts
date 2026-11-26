@@ -13,11 +13,12 @@
  *
  * 首个对话前 `llmChatOps` 尚未装配（字段为 `undefined`）⇒ 这里**补装配**；
  * `llmChatOps` 已改为"仅缺失才装配"，不会再把这里创建的实例覆盖掉。
+ *
+ * 2026-11-26：补装配也必须是 `PermissionManager.getInstance()` —— 规则 HTTP API（增删查 /
+ * simulate）读的就是单例；这里若另 `new` 一个，两边各持一份 30s 轮询的规则快照 ⇒ 写后/删后
+ * 「模拟 deny、执行 allow」。见 dev_docs/20261126/权限规则同源修复方案-20261126.md。
  */
-import {
-  createPermissionManager,
-  type PermissionManager,
-} from '@openliri/infra/permission';
+import { PermissionManager } from '@openliri/infra/permission';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { getLogger } from '@openliri/infra/monitoring';
 
@@ -31,7 +32,7 @@ export function livePermissionManager(): PermissionManager | undefined {
       | undefined;
     if (existing) return existing;
 
-    const created = createPermissionManager();
+    const created = PermissionManager.getInstance();
     chatManager.setPermissionManager(created);
     return created;
   } catch (error) {

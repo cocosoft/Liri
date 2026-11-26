@@ -35,7 +35,7 @@ import { AppError, handleError } from '@openliri/infra/error';
 import { getLogger } from '@openliri/infra/monitoring';
 import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { createPermissionManager } from '@openliri/infra/permission';
+import { PermissionManager } from '@openliri/infra/permission';
 import type { ChatManager } from '@modules/chat';
 import type { ToolManager } from '@modules/tools';
 import type { SmartRouter, RouteDecision } from '@modules/ai';
@@ -204,8 +204,12 @@ export class LlmChatOps {
       // P0-1: 装配权限管理器 —— 激活 ChatManager 工具执行点权限检查（工具执行审批链路）
       // 2026-11-11：**仅缺失才装配**。`/permissions mode` 在首个对话前可能已装配一个
       // （并把进程默认档设好）；此处无条件覆盖会丢掉那次设置，且让命令与判定不再是同一实例。
+      // 2026-11-26：必须用**进程唯一实例**。此前在此 `createPermissionManager()` 另建一个
+      // ⇒ 规则 HTTP API（增删查 / simulate）读单例，执行链读这个影子实例，两边各持一份
+      // `tool_rules.json` 内存快照（仅 30s 惰性轮询刷新）⇒ 写/删规则后"模拟 deny、执行 allow"。
+      // 详见 dev_docs/20261126/权限规则同源修复方案-20261126.md。
       if (!chatManager.getPermissionManager()) {
-        chatManager.setPermissionManager(createPermissionManager());
+        chatManager.setPermissionManager(PermissionManager.getInstance());
       }
 
       await chatManager.initialize();

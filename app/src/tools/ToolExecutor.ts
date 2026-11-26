@@ -5,10 +5,7 @@
 import { Tool } from './types/Tool';
 import { ToolResult, createToolResult } from './types/ToolResult';
 import { ToolUseContext } from './types/ToolUseContext';
-import {
-  PermissionManager,
-  createPermissionManager,
-} from '@openliri/infra/permission/PermissionManager';
+import { PermissionManager } from '@openliri/infra/permission/PermissionManager';
 // P1（2026-11-04）：判定唯一出口（归一为 PolicyDecision）
 import { resolvePolicy } from '@openliri/infra/permission';
 import { PermissionMode } from '@openliri/infra/permission/PermissionMode';
@@ -96,7 +93,10 @@ export class ToolExecutor {
     useGovernance: boolean = true,
     useHooks: boolean = true
   ) {
-    this.permissionManager = permissionManager || createPermissionManager();
+    // 2026-11-26：缺省用**进程唯一实例**（规则 API / simulate / 执行链共用同一规则快照）；
+    // 自建实例会让两端口径分叉（见 dev_docs/20261126/权限规则同源修复方案-20261126.md）。
+    this.permissionManager =
+      permissionManager || PermissionManager.getInstance();
     this.governanceManager =
       governanceManager || GovernanceManager.getInstance();
     this.hookManager = ToolHookManager.getInstance();

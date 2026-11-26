@@ -10,10 +10,7 @@ import {
   ToolExecutionContext,
   createDefaultGovernanceConfig,
 } from '@modules/governance/types/GovernanceTypes';
-import {
-  PermissionManager,
-  createPermissionManager,
-} from '@openliri/infra/permission';
+import { PermissionManager } from '@openliri/infra/permission';
 import { ToolHookManager } from '@modules/hooks';
 import { SandboxManager } from '@modules/sandbox';
 import { ToolFilterManager } from '@modules/tools';
@@ -70,7 +67,8 @@ export class GovernanceManager {
       completedExecutions: new Map(),
       pendingPermissions: new Map(),
     };
-    this.permissionManager = createPermissionManager();
+    // 2026-11-26：治理判定与规则 API / 执行链共用**进程唯一实例**（同一份规则快照）
+    this.permissionManager = PermissionManager.getInstance();
     this.toolHookManager = ToolHookManager.getInstance();
     this.sandboxManager = SandboxManager.getInstance();
     // D6（2026-10-08）：取**全局唯一注册表**（原为 `createToolRegistry()` ⇒ 空表 ⇒ 过滤恒空）

@@ -14,10 +14,7 @@ import type {
 } from './types';
 import { MiddlewareGroup } from './types';
 import { registerMiddleware } from './PipelineBuilder';
-import {
-  PermissionManager,
-  createPermissionManager,
-} from '@openliri/infra/permission/PermissionManager';
+import { PermissionManager } from '@openliri/infra/permission/PermissionManager';
 import { ToolHookManager } from '@modules/hooks';
 import type { ToolHookContext } from '../../hooks/types/ToolHooks';
 
@@ -27,7 +24,8 @@ import type { ToolHookContext } from '../../hooks/types/ToolHooks';
  * 创建权限检查中间件
  */
 export function createPermissionMiddleware(): ToolMiddleware {
-  const permissionManager: PermissionManager = createPermissionManager();
+  // 2026-11-26：与规则 API / 执行链共用**进程唯一实例**（自建实例会读到滞后的规则快照）
+  const permissionManager: PermissionManager = PermissionManager.getInstance();
 
   return {
     name: 'PermissionCheck',

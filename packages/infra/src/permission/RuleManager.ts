@@ -276,6 +276,16 @@ export class RuleManager {
    */
   private rulesFileHash: string | null = null;
 
+  /**
+   * 当前内存快照是否已从 `ruleSource` 加载过（2026-11-26 fail-safe 依据）。
+   *
+   * 为什么必须记：`saveRules()` 是**整份覆盖写**。未加载过该文件的实例（旧影子实例 /
+   * 脚本里的 `new RuleManager()`）一旦触发 `addRule` / `removeRule` / `clearRules`，
+   * 就会把自己那份（常为空）快照整份写回，**把他人的规则全部抹掉**（2026-11-26 真机事故：
+   * `tool_rules.json` 被写成 `[]`）。⇒ 写前先按文件同步快照。
+   */
+  private sourceLoaded = false;
+
   /** P2-5: 上次 Hash 校验时间戳 */
   private lastHashCheckTime = 0;
 
@@ -326,6 +336,9 @@ export class RuleManager {
         this.rules = JSON.parse(rulesData);
         // P2-5: 记录文件 hash，供外部修改检测比对
         this.rulesFileHash = this.computeHash(rulesData);
+        // 2026-11-26：读成功即视为"快照来自该文件" —— 必须在下方的迁移/去重回写之前置位，
+        // 否则 `saveRules` 的写前守卫会再次触发 `loadRules`（递归）。
+        this.sourceLoaded = true;
 
         // 转换日期字符串为Date对象
         this.rules.forEach((rule) => {
@@ -372,6 +385,8 @@ export class RuleManager {
       } else {
         // 文件不存在：重置 hash（外部删除后重新创建需重新校验）
         this.rulesFileHash = null;
+        // "文件不存在 ⇒ 空规则"是合法的已加载状态（首次写盘必须允许）
+        this.sourceLoaded = true;
       }
     } catch (error) {
       void handleError(error, {
@@ -383,11 +398,36 @@ export class RuleManager {
   }
 
   /**
+   * 写前保证内存快照来自 `ruleSource`（2026-11-26 fail-safe）。
+   *
+   * 未加载过 ⇒ 先按文件重建快照，再让调用方在其上做**单条**增删；
+   * 文件读不出来（不存在以外，如 JSON 损坏）⇒ 返回 `false`，调用方**不得覆盖写**。
+   */
+  private ensureSnapshotBeforeWrite(operation: string): boolean {
+    if (this.sourceLoaded) return true;
+    logger.warn('规则写前发现快照未加载，先按文件同步（避免整份覆盖）', {
+      operation,
+      ruleSource: this.ruleSource,
+    });
+    this.loadRules();
+    return this.sourceLoaded;
+  }
+
+  /**
    * 保存权限规则
    * @param rules 权限规则数组
    */
   saveRules(rules: PermissionRule[]): void {
     try {
+      // fail-safe（2026-11-26）：整份覆盖写之前，必须确认内存快照确实来自该文件；
+      // 否则跳过写入（宁可这次没落盘，也不能把他人的规则抹成空）。
+      if (!this.ensureSnapshotBeforeWrite('saveRules') && existsSync(this.ruleSource)) {
+        logger.error('规则文件无法读取，拒绝整份覆盖写（保留磁盘现状）', {
+          ruleSource: this.ruleSource,
+          attempted: rules.length,
+        });
+        return;
+      }
       // 确保数据目录存在
       const dataDir = dirname(this.ruleSource);
       if (!existsSync(dataDir)) {
@@ -431,6 +471,15 @@ export class RuleManager {
    * @param rule 权限规则
    */
   addRule(rule: PermissionRule): void {
+    // fail-safe（2026-11-26）：先按文件同步快照，再在**其**上追加 —— 否则本次追加会被
+    // 随后的"整份覆盖写"抹掉，或反过来把他人的规则抹掉。
+    if (!this.ensureSnapshotBeforeWrite('addRule')) {
+      logger.error('规则文件无法读取，跳过添加（保留磁盘现状）', {
+        ruleSource: this.ruleSource,
+        toolName: rule.toolName,
+      });
+      return;
+    }
     const sameKey = (r: PermissionRule): boolean =>
       r.source === rule.source &&
       r.toolName === rule.toolName &&
@@ -482,6 +531,14 @@ export class RuleManager {
    * @param rule 权限规则
    */
   removeRule(rule: PermissionRule): void {
+    // fail-safe（2026-11-26）：未同步过文件 ⇒ 先同步，避免用自有快照整份覆盖他人规则
+    if (!this.ensureSnapshotBeforeWrite('removeRule')) {
+      logger.error('规则文件无法读取，跳过删除（保留磁盘现状）', {
+        ruleSource: this.ruleSource,
+        ruleId: rule.id,
+      });
+      return;
+    }
     this.rules = this.rules.filter((r) => r.id !== rule.id);
     this.saveRules(this.rules);
   }
@@ -490,6 +547,14 @@ export class RuleManager {
    * 清空所有规则
    */
   clearRules(): void {
+    // fail-safe（2026-11-26）：`clearRules` 会写出 `[]`，必须先确认快照来自该文件，
+    // 否则一次"清空内存"就会把磁盘上的全部规则抹掉。
+    if (!this.ensureSnapshotBeforeWrite('clearRules')) {
+      logger.error('规则文件无法读取，跳过清空（保留磁盘现状）', {
+        ruleSource: this.ruleSource,
+      });
+      return;
+    }
     this.rules = [];
     this.saveRules(this.rules);
   }
@@ -647,6 +712,8 @@ export class RuleManager {
     // P2-5: 切换源后重置 hash，新文件需重新加载与校验
     this.rulesFileHash = null;
     this.lastHashCheckTime = 0;
+    // 2026-11-26：换源后"是否已加载"同样作废 —— 下一次写盘前必须重新按新源同步
+    this.sourceLoaded = false;
   }
 
   /**

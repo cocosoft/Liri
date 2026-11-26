@@ -25,11 +25,13 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 
 import { PermissionManager } from '@openliri/infra/permission/PermissionManager';
+import { RuleManager } from '@openliri/infra/permission/RuleManager';
 import type { ToolPermissionResult } from '@openliri/infra/permission/manager/toolPermission';
 import {
   PermissionBehavior,
@@ -215,6 +217,93 @@ describe('S0：simulate 与执行的判定必须同源（同一实例、同一�
       expect(toDecision(executed)).toBe(simulated.decision);
     });
   }
+
+  it('内容级 deny 的拒绝依据标为 matchScope=content（不再误标 tool）', async () => {
+    manager.getRuleManager().addRule(
+      createPermissionRule({
+        behavior: PermissionBehavior.DENY,
+        toolName: 'file_write',
+        contentPattern: '.*',
+        source: PermissionRuleSource.RULE_STORE,
+      })
+    );
+
+    const result = await manager.checkPermissionForTool('file_write', {
+      file_path: 'out.txt',
+      content: 'x',
+    });
+    expect(result.denyInfo?.matchScope).toBe('content');
+  });
+
+  it('工具级 deny 的拒绝依据仍为 matchScope=tool', async () => {
+    manager.getRuleManager().addRule(
+      createPermissionRule({
+        behavior: PermissionBehavior.DENY,
+        toolName: 'file_write',
+        source: PermissionRuleSource.RULE_STORE,
+      })
+    );
+
+    const result = await manager.checkPermissionForTool('file_write', {
+      file_path: 'out.txt',
+      content: 'x',
+    });
+    expect(result.denyInfo?.matchScope).toBe('tool');
+  });
+});
+
+/**
+ * 2026-11-26 fail-safe：规则文件是**整份覆盖写**。
+ *
+ * 真机事故：未加载过该文件的实例（旧影子实例 / 脚本）一触发增删，就把它自己那份（常为空）
+ * 快照写回，本机 21 条规则被抹成 `[]`。⇒ 写前必须按文件同步快照。
+ */
+describe('S2b：写规则前必须基于该文件的快照（防止整份覆盖）', () => {
+  let dir: string;
+  let shared: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'liri-rule-write-safety-'));
+    shared = join(dir, 'tool_rules.json');
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  const ruleOf = (pattern: string): PermissionRule =>
+    createPermissionRule({
+      behavior: PermissionBehavior.DENY,
+      toolName: 'bash',
+      contentPattern: pattern,
+      source: PermissionRuleSource.RULE_STORE,
+    });
+
+  it('未 loadRules 的实例 addRule ⇒ 不覆盖他人的规则', () => {
+    const loaded = new RuleManager();
+    loaded.setRuleSource(shared);
+    loaded.loadRules();
+    loaded.addRule(ruleOf('^a$'));
+
+    // 影子实例：构造后从未读过该文件（本次事故的形态）
+    const shadow = new RuleManager();
+    shadow.setRuleSource(shared);
+    shadow.addRule(ruleOf('^b$'));
+
+    const onDisk = JSON.parse(readFileSync(shared, 'utf8')) as PermissionRule[];
+    expect(onDisk.map((r) => r.contentPattern).sort()).toEqual(['^a$', '^b$']);
+  });
+
+  it('规则文件损坏（读不出来）⇒ 拒绝整份覆盖写，磁盘现状保留', () => {
+    const corrupted = '{ not json';
+    writeFileSync(shared, corrupted, 'utf8');
+
+    const shadow = new RuleManager();
+    shadow.setRuleSource(shared);
+    shadow.addRule(ruleOf('^b$'));
+
+    expect(readFileSync(shared, 'utf8')).toBe(corrupted);
+  });
 });
 
 /**

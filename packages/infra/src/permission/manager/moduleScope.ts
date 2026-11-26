@@ -138,7 +138,11 @@ export function buildDenyInfo(
   if (typeof context.removableVia === 'string') {
     info.removableVia = context.removableVia;
   }
-  if (context.matchScope === 'tool' || context.matchScope === 'fingerprint') {
+  if (
+    context.matchScope === 'tool' ||
+    context.matchScope === 'content' ||
+    context.matchScope === 'fingerprint'
+  ) {
     info.matchScope = context.matchScope;
   }
   return Object.keys(info).length > 0 ? info : undefined;

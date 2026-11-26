@@ -27,7 +27,12 @@ const logger = getLogger('permission:manager');
   export function denyByRule(
     toolName: string,
     rule:
-      | { id?: string; source?: string; inputFingerprint?: string }
+      | {
+          id?: string;
+          source?: string;
+          inputFingerprint?: string;
+          contentPattern?: string;
+        }
       | undefined,
     /**
      * F5（2026-10-27）：**本次调用**的指纹摘要（`hashApprovalFingerprint(...)`）。
@@ -41,8 +46,14 @@ const logger = getLogger('permission:manager');
     const marker = ruleId ? ` [rule=${ruleId}]` : '';
     const from = source ? ` from ${source}` : '';
     const removableVia = resolveRuleRemovalHint(ruleId, source);
-    // 命中维度：规则带指纹 ⇒ 指纹级（只管该参数组合）；否则工具级（管整个工具）
-    const matchScope = rule?.inputFingerprint ? 'fingerprint' : 'tool';
+    // 命中维度：指纹规则 ⇒ 指纹级（只管该参数组合）；内容规则 ⇒ 内容级（只管命中的输入）；
+    // 其余 ⇒ 工具级（管整个工具）。2026-11-26 补 `content`：此前内容级也被标成 `tool`，
+    // 让「这一条 deny 到底封了多大范围」失真。
+    const matchScope = rule?.inputFingerprint
+      ? 'fingerprint'
+      : rule?.contentPattern
+        ? 'content'
+        : 'tool';
     logger.warn('permission:deny', {
       toolName,
       ruleId,

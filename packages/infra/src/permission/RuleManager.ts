@@ -547,8 +547,17 @@ export class RuleManager {
    * 清空所有规则
    */
   clearRules(): void {
-    // fail-safe（2026-11-26）：`clearRules` 会写出 `[]`，必须先确认快照来自该文件，
-    // 否则一次"清空内存"就会把磁盘上的全部规则抹掉。
+    // fail-safe（2026-11-27）：`clearRules` 是**全量破坏**操作，不能靠 `ensureSnapshotBeforeWrite`
+    // 救 —— 那条路径是"先同步、再清空"，影子实例同步完照样把整库抹掉（2026-11-26 事故现场
+    // 的 `tool_rules.json` 正是被写成 `[]`）。
+    // 判据：本实例从未读过该文件、而磁盘上却有规则 ⇒ 拒绝清空（那不是"我的"规则库）。
+    // 文件不存在 / 为空 ⇒ 允许（测试夹具的"建干净规则库"用法不变）。
+    if (!this.sourceLoaded && this.hasRulesOnDisk()) {
+      logger.error('规则库未加载过但磁盘已有规则，拒绝清空（保留磁盘现状）', {
+        ruleSource: this.ruleSource,
+      });
+      return;
+    }
     if (!this.ensureSnapshotBeforeWrite('clearRules')) {
       logger.error('规则文件无法读取，跳过清空（保留磁盘现状）', {
         ruleSource: this.ruleSource,
@@ -557,6 +566,17 @@ export class RuleManager {
     }
     this.rules = [];
     this.saveRules(this.rules);
+  }
+
+  /** 磁盘上的规则库是否已有规则（读不出来 ⇒ 视为"有"，让调用方走拒绝分支而不是覆盖） */
+  private hasRulesOnDisk(): boolean {
+    if (!existsSync(this.ruleSource)) return false;
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(this.ruleSource, 'utf8'));
+      return Array.isArray(parsed) && parsed.length > 0;
+    } catch {
+      return true;
+    }
   }
 
   /**

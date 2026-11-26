@@ -30,6 +30,7 @@ import {
   PermissionBehavior,
   PermissionRuleSource,
   createPermissionRule,
+  isRuleMatch,
   type PermissionRule,
 } from '@openliri/infra/permission/types/PermissionRule';
 
@@ -335,6 +336,21 @@ describe('S2b：写规则前必须基于该文件的快照（防止整份覆盖�
     expect(onDisk.map((r) => r.contentPattern).sort()).toEqual(['^a$', '^b$']);
   });
 
+  it('未 loadRules 的实例 clearRules ⇒ 不清空磁盘上的他人规则', () => {
+    const loaded = new RuleManager();
+    loaded.setRuleSource(shared);
+    loaded.loadRules();
+    loaded.addRule(ruleOf('^keep$'));
+
+    // 影子实例：从未读过该文件，直接"清空内存"（本次事故里最危险的形态）
+    const shadow = new RuleManager();
+    shadow.setRuleSource(shared);
+    shadow.clearRules();
+
+    const onDisk = JSON.parse(readFileSync(shared, 'utf8')) as PermissionRule[];
+    expect(onDisk.map((r) => r.contentPattern)).toEqual(['^keep$']);
+  });
+
   it('规则文件损坏（读不出来）⇒ 拒绝整份覆盖写，磁盘现状保留', () => {
     const corrupted = '{ not json';
     writeFileSync(shared, corrupted, 'utf8');
@@ -344,6 +360,220 @@ describe('S2b：写规则前必须基于该文件的快照（防止整份覆盖�
     shadow.addRule(ruleOf('^b$'));
 
     expect(readFileSync(shared, 'utf8')).toBe(corrupted);
+  });
+});
+
+/**
+ * 方案 §5.2「附加用例」（2026-11-27 补齐）。
+ *
+ * 与上面的分工：前面锁「同规则同输入 ⇒ 同结论」，这里锁**规则什么时候生效**，以及
+ * 别名 / 工作区 / 档位这些边界不会让规则悄悄失效（也不让它悄悄放大）。
+ */
+describe('S0：写后即生效（规则快照新鲜度）', () => {
+  let dir: string;
+  let rulesFile: string;
+  let manager: PermissionManager;
+
+  const denyMonitor = (): PermissionRule =>
+    createPermissionRule({
+      behavior: PermissionBehavior.DENY,
+      toolName: 'monitor',
+      contentPattern: '.*',
+      source: PermissionRuleSource.RULE_STORE,
+    });
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'liri-rule-fresh-'));
+    rulesFile = join(dir, 'tool_rules.json');
+    // 预先落一份**空数组**：让实例加载后即持有文件 hash（外部改动才可被哈希比对识别）
+    writeFileSync(rulesFile, '[]', 'utf8');
+    manager = new PermissionManager();
+    manager.getRuleManager().setRuleSource(rulesFile);
+    manager.getRuleManager().loadRules();
+    manager.setToolPermissionContext({
+      alwaysAllowRules: {},
+      alwaysDenyRules: {},
+      alwaysAskRules: {},
+    });
+    manager.setMode('default');
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('addRule 后立即判定即生效（不等 30s 轮询）', async () => {
+    manager.getRuleManager().addRule(denyMonitor());
+
+    const result = await manager.checkPermissionForTool('monitor', {
+      metric: 'cpu',
+    });
+    expect(toDecision(result)).toBe('deny');
+  });
+
+  it('removeRule 后立即判定即恢复', async () => {
+    const rule = denyMonitor();
+    manager.getRuleManager().addRule(rule);
+    manager.getRuleManager().removeRule(rule);
+
+    const result = await manager.checkPermissionForTool('monitor', {
+      metric: 'cpu',
+    });
+    expect(toDecision(result)).toBe('allow');
+  });
+
+  it('他进程改文件：轮询窗口内不刷新，轮询动作（loadRules）后生效', async () => {
+    // 先跑一次判定，把 hash 校验时间推进到"此刻"（脚本/首条判定后的稳定态）
+    await manager.checkPermissionForTool('monitor', { metric: 'cpu' });
+
+    // 另一个"进程"（独立实例）追加一条 deny
+    const other = new RuleManager();
+    other.setRuleSource(rulesFile);
+    other.loadRules();
+    other.addRule(denyMonitor());
+
+    // 30s 轮询窗口内：内存快照仍是旧的（既有设计：外部改动最多滞后一个轮询间隔）
+    expect(
+      toDecision(
+        await manager.checkPermissionForTool('monitor', { metric: 'cpu' })
+      )
+    ).toBe('allow');
+
+    // 轮询到点后做的正是 loadRules ⇒ 新规则生效
+    manager.getRuleManager().loadRules();
+    expect(
+      toDecision(
+        await manager.checkPermissionForTool('monitor', { metric: 'cpu' })
+      )
+    ).toBe('deny');
+  });
+});
+
+describe('S0：别名 → 真名归一后工具级规则仍命中', () => {
+  let dir: string;
+  let manager: PermissionManager;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'liri-rule-alias-'));
+    manager = new PermissionManager();
+    manager.getRuleManager().setRuleSource(join(dir, 'tool_rules.json'));
+    manager.getRuleManager().loadRules();
+    manager.setToolPermissionContext({
+      alwaysAllowRules: {},
+      alwaysDenyRules: {},
+      alwaysAskRules: {},
+    });
+    manager.setMode('default');
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('按 wire 别名调用、规则按真名配置 ⇒ 仍被拦截（F3 归一）', async () => {
+    manager.getRuleManager().addRule(
+      createPermissionRule({
+        behavior: PermissionBehavior.DENY,
+        toolName: 'file_write',
+        source: PermissionRuleSource.RULE_STORE,
+      })
+    );
+
+    // 执行入口会带上工具对象（`context.tool`），真名由它给出
+    const result = await manager.checkPermissionForTool(
+      'fw_alias',
+      { file_path: 'out.txt', content: 'x' },
+      { tool: { name: 'file_write' } as never }
+    );
+    expect(toDecision(result)).toBe('deny');
+  });
+});
+
+describe('S0：工作区作用域 fail-closed（isRuleMatch 唯一实现）', () => {
+  const rootedRule = (): PermissionRule =>
+    createPermissionRule({
+      behavior: PermissionBehavior.ALLOW,
+      toolName: 'bash',
+      workspaceRoot: 'C:\\proj\\Alpha',
+      source: PermissionRuleSource.RULE_STORE,
+    });
+
+  it('根不匹配 ⇒ 不命中（不得跨工作区放行）', () => {
+    const rule = rootedRule();
+    expect(
+      isRuleMatch(
+        rule,
+        'bash',
+        { command: 'ls' },
+        {
+          workspaceRoots: ['C:\\proj\\Beta'],
+        }
+      )
+    ).toBe(false);
+  });
+
+  it('调用方未给根 ⇒ 不命中（fail-closed，而不是"无条件生效"）', () => {
+    expect(isRuleMatch(rootedRule(), 'bash', { command: 'ls' })).toBe(false);
+  });
+
+  it('根匹配（大小写 / 分隔符归一后）⇒ 命中', () => {
+    expect(
+      isRuleMatch(
+        rootedRule(),
+        'bash',
+        { command: 'ls' },
+        {
+          workspaceRoots: ['c:/proj/alpha/'],
+        }
+      )
+    ).toBe(true);
+  });
+});
+
+describe('S0：plan 档下内容级 deny 仍优先（不因档位放宽）', () => {
+  let dir: string;
+  let manager: PermissionManager;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'liri-rule-plan-'));
+    manager = new PermissionManager();
+    manager.getRuleManager().setRuleSource(join(dir, 'tool_rules.json'));
+    manager.getRuleManager().loadRules();
+    manager.setToolPermissionContext({
+      alwaysAllowRules: {},
+      alwaysDenyRules: {},
+      alwaysAskRules: {},
+    });
+    manager.setMode('plan');
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('内容级 deny 命中 ⇒ deny（不是 ask）', async () => {
+    manager.getRuleManager().addRule(
+      createPermissionRule({
+        behavior: PermissionBehavior.DENY,
+        toolName: 'file_write',
+        contentPattern: '.*',
+        source: PermissionRuleSource.RULE_STORE,
+      })
+    );
+
+    const result = await manager.checkPermissionForTool('file_write', {
+      file_path: 'out.txt',
+      content: 'x',
+    });
+    expect(toDecision(result)).toBe('deny');
+  });
+
+  it('无规则时仍是 ask（每步确认语义未变）', async () => {
+    const result = await manager.checkPermissionForTool('file_write', {
+      file_path: 'out.txt',
+      content: 'x',
+    });
+    expect(toDecision(result)).toBe('ask');
   });
 });
 

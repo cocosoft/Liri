@@ -587,6 +587,8 @@ export class BashTool extends BaseTool {
         context,
         startTime,
         sandboxRequired,
+        // 2026-11-26（fail-closed 配套）：本命令是否已因"沙箱覆盖"免掉审批卡
+        approvalSkipped: sandboxCoversAsk,
         onProgress,
       });
     } catch (error) {
@@ -1055,6 +1057,8 @@ export class BashTool extends BaseTool {
     startTime: number;
     /** 2026-11-26：非只读命令强制写隔离（由 `execute` 前段统一判定，避免两处口径漂移） */
     sandboxRequired: boolean;
+    /** 2026-11-26：审批卡是否已因"沙箱覆盖"免掉（执行期无法隔离时按 fail-closed 拒绝） */
+    approvalSkipped: boolean;
     onProgress?: ToolCallProgress<any>;
   }): Promise<ToolResult<unknown>> {
     const {
@@ -1065,6 +1069,7 @@ export class BashTool extends BaseTool {
       context,
       startTime,
       sandboxRequired,
+      approvalSkipped,
       onProgress,
     } = params;
 
@@ -1203,6 +1208,7 @@ export class BashTool extends BaseTool {
       timeoutMs: timeout,
       maxBufferChars: maxBuffer,
       sandboxRequired,
+      approvalSkipped,
       // R21（2026-10-09）：把会话取消信号接入执行链 ⇒ 取消/中断时强杀**进程树**
       //（否则 shell 与孙进程会继续运行成为孤儿；信号来源见 `ToolUseContext.abortController`）
       ...(context?.abortController?.signal

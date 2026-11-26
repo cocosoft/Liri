@@ -676,6 +676,53 @@ describe('§10 execBashCommand：Windows 写隔离接线', () => {
     // 并发共用同一目录靠引用计数（最后一个释放才恢复）⇒ 收尾后标签必须回 Medium，不能残留 Low
     expect(ctx.icacls.levels.get('C:\\work\\ws')).toBe('Medium');
   });
+
+  // 2026-11-26（用户裁定补 fail-closed）：免审批是拿"会被真隔离"换来的
+  it('approvalSkipped=true + helper 不可用（failClosed=false）⇒ 拒绝执行，不降级 plain', async () => {
+    const ctx = baseDeps({
+      detectWin: () => ({ available: false, reason: 'helper-missing' }),
+    });
+    await expect(
+      execBashCommand({
+        command: 'python -c "print(1)"',
+        cwd: 'C:\\work\\ws',
+        env: {},
+        timeoutMs: 1000,
+        maxBufferChars: 1024,
+        sandboxRequired: true,
+        approvalSkipped: true,
+        deps: ctx.deps,
+      })
+    ).rejects.toThrow(/sandbox_denied: init/);
+    expect(ctx.plainCalls).toEqual([]);
+  });
+
+  it('approvalSkipped=true + helper 自身失败（126）⇒ 拒绝执行（不把 126 当命令失败）', async () => {
+    const ctx = baseDeps({
+      runWinSandbox: async () => ({
+        stdout: '',
+        stderr: 'helper init failed',
+        exitCode: 126,
+        timedOut: false,
+        helperFailed: true,
+      }),
+    });
+    await expect(
+      execBashCommand({
+        command: 'python -c "print(1)"',
+        cwd: 'C:\\work\\ws',
+        env: {},
+        timeoutMs: 1000,
+        maxBufferChars: 1024,
+        sandboxRequired: true,
+        approvalSkipped: true,
+        deps: ctx.deps,
+      })
+    ).rejects.toThrow(/sandbox_denied: init/);
+    expect(ctx.plainCalls).toEqual([]);
+    // 标签仍必须恢复
+    expect(ctx.icacls.levels.get('C:\\work\\ws')).toBe('Medium');
+  });
 });
 
 describe('icacls 失败归因（describeIcaclsFailure，2026-11-07）', () => {

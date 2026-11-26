@@ -564,6 +564,14 @@ export interface BashExecInput {
    * 沙箱不可用 ⇒ 降级 plain（保留审批卡）并记 `bash: sandbox_required_unavailable` 告警。
    */
   sandboxRequired?: boolean;
+  /**
+   * 2026-11-26（fail-closed）：本次命令的审批卡**已被"沙箱覆盖"免掉**（`BashTool.sandboxCoversAsk`）。
+   *
+   * 语义：免审批是拿"命令会被真隔离"换来的 ⇒ 执行期一旦无法施加隔离，必须**拒绝执行**
+   *（否则就是"已免审批却裸跑"）。为 `false`（审批卡确实弹过）时维持既定降级语义：
+   * 不可用 ⇒ 降级 plain 并保留审批。
+   */
+  approvalSkipped?: boolean;
   deps?: BashExecDeps;
 }
 
@@ -647,8 +655,22 @@ async function finalizeBashSandboxResult(params: {
     runPlain,
   } = params;
 
+  // 2026-11-26（用户裁定「沙箱内执行 ⇒ 免审批」的配套 **fail-closed**）：
+  // 免审批是拿"命令会被真隔离"换来的 ⇒ 执行期一旦无法施加隔离就**拒绝**，
+  // 不再"降级 plain 无卡裸跑"（这曾是可被观测到的空窗）。
+  const failClosed = config.failClosed || input.approvalSkipped === true;
+
   if (result === null) {
     // 仅 Windows 分支会返回 null（helper/授权不可用且 failClosed=false）
+    if (input.approvalSkipped) {
+      // 防御：required 分支已在各失败点直接抛错，走到这里说明有新增的 null 出口 ⇒ 宁可拒绝
+      throw new AppError(
+        '该命令已因"写隔离可证"免审批，但沙箱返回"不可用"（fail-closed）⇒ 拒绝执行。［sandbox_denied: init］',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'G1A_SANDBOX_REQUIRED_UNENFORCEABLE'
+      );
+    }
     return runPlainFallback({
       runPlain,
       command: input.command,
@@ -675,15 +697,15 @@ async function finalizeBashSandboxResult(params: {
     'helperFailed' in result &&
     result.helperFailed
   ) {
-    if (config.failClosed) {
+    if (failClosed) {
       // G4 围栏 M0-①：无法施加隔离 ⇒ 拒绝执行，记一条沙箱拦截
       recordSandboxViolation(
         'init-failed',
-        'Windows 沙箱 helper 自身失败且 failClosed=true ⇒ 拒绝执行 bash',
+        'Windows 沙箱 helper 自身失败且需隔离（fail-closed）⇒ 拒绝执行 bash',
         { tool: 'bash', mode: gate.mode }
       );
       throw new AppError(
-        `Windows 沙箱 helper 自身失败（exit 126；failClosed=true）⇒ 拒绝执行：${result.stderr.slice(0, 500)}［sandbox_denied: init］`,
+        `Windows 沙箱 helper 自身失败（exit 126；fail-closed：failClosed=true 或该命令需隔离）⇒ 拒绝执行：${result.stderr.slice(0, 500)}［sandbox_denied: init］`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
         'G1A_WIN_SANDBOX_INIT_FAILED'
@@ -699,15 +721,15 @@ async function finalizeBashSandboxResult(params: {
   // ⚠️ exit-125 协议**只属 landlock**：`sandbox-exec` 没有该语义，若把用户命令的 125 当"初始化失败"，
   // 会触发 failClosed=false 的 plain 回退 ⇒ **逃出沙箱**。故此处显式按门控模式收窄。
   if (gate.mode === 'landlock' && isSandboxInitFailure(result.exitCode ?? -1)) {
-    if (config.failClosed) {
+    if (failClosed) {
       // G4 围栏 M0-①：同上的"无法施加隔离 ⇒ 拒绝执行"
       recordSandboxViolation(
         'init-failed',
-        'Landlock 初始化失败且 failClosed=true ⇒ 拒绝执行 bash',
+        'Landlock 初始化失败且需隔离（fail-closed）⇒ 拒绝执行 bash',
         { tool: 'bash', mode: gate.mode }
       );
       throw new AppError(
-        `Landlock 沙箱初始化失败（exit 125；failClosed=true）⇒ 拒绝执行：${result.stderr.slice(0, 500)}`,
+        `Landlock 沙箱初始化失败（exit 125；fail-closed：failClosed=true 或该命令需隔离）⇒ 拒绝执行：${result.stderr.slice(0, 500)}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
         'G1A_LANDLOCK_INIT_FAILED'
@@ -800,10 +822,8 @@ export async function execBashCommand(
   // 2026-11-26（用户裁定）：**危险/需审批命令**（`sandboxRequired`）不受 `bashEnabled` 开关限制
   // —— 否则开关一关，危险命令批准后就裸跑（真机 `session_mwxejcri608102864c` 实证：
   // 工作区外写入未被拦）。总开关 `enabled=false` 仍尊重（用户可整体关掉沙箱子系统）。
-  if (
-    !config.enabled ||
-    (!config.bashEnabled && !evalForced && !input.sandboxRequired)
-  ) {
+  const required = input.sandboxRequired === true;
+  if (!config.enabled || (!config.bashEnabled && !evalForced && !required)) {
     // G1-C（选项 C）的顾问性提示：能力可用却未接入时 WARN 一次
     await reportBashLandlockGapOnce();
     // P2（2026-11-07）：Windows 上"不开沙箱"是平台约束而非开关问题 —— 一次性说清
@@ -849,7 +869,29 @@ export async function execBashCommand(
   if (gate.mode === 'plain') {
     await reportBashLandlockGapOnce();
     reportBashSandboxDegradedOnce({ platform });
-    // 2026-11-26：需审批命令却拿不到沙箱 ⇒ 用户裁定「降级 + 保留审批卡」，但必须留可查证据
+    // 2026-11-26（用户裁定「沙箱内执行 ⇒ 免审批」的配套 **fail-closed**）：
+    // 该命令的审批卡已被"沙箱覆盖"免掉（`approvalSkipped`）⇒ 执行期却拿不到沙箱，
+    // 属"声称隔离却没隔离" ⇒ **拒绝执行**，不能降级 plain 无卡裸跑。
+    if (input.approvalSkipped === true) {
+      logger.warn('bash: sandbox_required_fail_closed', {
+        platform,
+        reason: gate.reason,
+        commandPreview,
+      });
+      recordSandboxViolation(
+        'init-failed',
+        '命令已因写隔离可证而免审批，但执行期未能施加隔离（fail-closed）⇒ 拒绝执行 bash',
+        { tool: 'bash', reason: gate.reason }
+      );
+      throw new AppError(
+        `该命令已因"写隔离可证"免审批，但执行期未能施加隔离（${gate.reason}）` +
+          `⇒ 按 fail-closed 拒绝执行（避免"已免审批却裸跑"）。［sandbox_denied: init］`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'G1A_SANDBOX_REQUIRED_UNENFORCEABLE'
+      );
+    }
+    // 2026-11-26：能力确实不可用（探测未通过，审批卡已弹过）⇒ 用户裁定「降级 + 保留审批卡」
     if (input.sandboxRequired) {
       logger.warn('bash: sandbox_required_unavailable', {
         platform,
@@ -1004,9 +1046,15 @@ export async function execBashCommand(
     );
 
     if (outcome.kind === 'helper-unavailable') {
-      if (config.failClosed) {
+      // 2026-11-26（fail-closed）：命令已因"能隔离"而免审批 ⇒ 执行期 helper 不可用必须拒绝
+      if (config.failClosed || input.approvalSkipped === true) {
+        recordSandboxViolation(
+          'init-failed',
+          'Windows 沙箱 helper 不可用且命令需隔离（fail-closed）⇒ 拒绝执行 bash',
+          { tool: 'bash' }
+        );
         throw new AppError(
-          `已开启 sandbox.landlock.bashEnabled，但 Windows 沙箱 helper 不可用（${outcome.detail}；failClosed=true）⇒ 拒绝执行 bash。` +
+          `Windows 沙箱 helper 不可用（${outcome.detail}；fail-closed：failClosed=true 或该命令需隔离）⇒ 拒绝执行 bash。` +
             `请运行 bun run build:win-sandbox 构建 helper，或关闭该开关。［sandbox_denied: init］`,
           ErrorCategory.EXECUTION,
           ErrorSeverity.HIGH,
@@ -1021,9 +1069,15 @@ export async function execBashCommand(
     }
 
     if (outcome.kind === 'grant-failed') {
-      if (config.failClosed) {
+      // 2026-11-26（fail-closed）：同上 —— 已免审批的命令不能因授权失败而裸跑
+      if (config.failClosed || input.approvalSkipped === true) {
+        recordSandboxViolation(
+          'init-failed',
+          'Windows 写授权失败且命令需隔离（fail-closed）⇒ 拒绝执行 bash',
+          { tool: 'bash' }
+        );
         throw new AppError(
-          `无法为 bash 工作区临时降级完整性标签（${outcome.detail}；failClosed=true）⇒ 拒绝执行。［sandbox_denied: init］`,
+          `无法为 bash 工作区临时降级完整性标签（${outcome.detail}；fail-closed：failClosed=true 或该命令需隔离）⇒ 拒绝执行。［sandbox_denied: init］`,
           ErrorCategory.EXECUTION,
           ErrorSeverity.HIGH,
           'G1A_WIN_SANDBOX_GRANT_FAILED'

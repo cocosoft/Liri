@@ -1223,6 +1223,8 @@ export class PowerShellTool extends BaseTool {
         timeoutMs: timeout,
         env: { ...process.env, POWERSHELL_TEAPOT: '1' },
         sandboxRequired: !this.isReadOnly({ command }),
+        // 2026-11-26（fail-closed 配套）：审批卡已因"沙箱覆盖"免掉 ⇒ 执行期不可隔离时必须拒绝
+        approvalSkipped: sandboxCoversAsk,
         ...(context.abortController?.signal
           ? { signal: context.abortController.signal }
           : {}),

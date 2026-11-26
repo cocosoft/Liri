@@ -305,7 +305,7 @@ describe('G1-A: 危险/需审批命令强制沙箱（required）', () => {
     expect(spy.calls).toEqual([]);
   });
 
-  it('exec 层：sandboxRequired 但能力不可用 ⇒ 降级 plain（不拒绝）', async () => {
+  it('exec 层：sandboxRequired 但能力不可用 + 卡已弹过（approvalSkipped=false）⇒ 降级 plain', async () => {
     const spy = plainSpy();
     const out = await execBashCommand({
       command: 'python -c "print(1)"',
@@ -323,6 +323,28 @@ describe('G1-A: 危险/需审批命令强制沙箱（required）', () => {
 
     expect(out).toEqual({ stdout: 'plain-out', stderr: '' });
     expect(spy.calls).toHaveLength(1);
+  });
+
+  // 2026-11-26（用户裁定补 fail-closed）：免审批是拿"会被真隔离"换来的 ⇒ 执行期拿不到隔离必须拒绝
+  it('exec 层：approvalSkipped=true 但能力不可用 ⇒ 拒绝执行（不降级、不跑 plain）', async () => {
+    const spy = plainSpy();
+    await expect(
+      execBashCommand({
+        command: 'python -c "print(1)"',
+        env: {},
+        timeoutMs: 1000,
+        maxBufferChars: 1024,
+        sandboxRequired: true,
+        approvalSkipped: true,
+        deps: {
+          config: cfg({ bashEnabled: false }),
+          platform: 'linux',
+          detect: async () => UNAVAILABLE,
+          runPlain: spy.runPlain,
+        },
+      })
+    ).rejects.toThrow(/sandbox_denied: init/);
+    expect(spy.calls).toEqual([]);
   });
 });
 

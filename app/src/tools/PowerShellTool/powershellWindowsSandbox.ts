@@ -99,6 +99,11 @@ export interface PowerShellRunInput {
    * `sandbox.landlock.bashEnabled` 约束（该开关从此只管辖"只读命令"——它们不写盘，本来也不进沙箱）。
    */
   sandboxRequired?: boolean;
+  /**
+   * 2026-11-26（fail-closed）：审批卡是否已因"沙箱覆盖"免掉（`PowerShellTool.sandboxCoversAsk`）。
+   * 为 `true` 时执行期一旦无法施加隔离 ⇒ 拒绝执行（否则就是"已免审批却裸跑"）。
+   */
+  approvalSkipped?: boolean;
   /** 注入真实 icacls / helper（离线用例不需要改真实 ACL） */
   sandboxDeps?: WindowsWriteIsolationDeps;
 }
@@ -126,6 +131,20 @@ export type PowerShellSandboxAttempt =
   | { kind: 'plain' }
   | { kind: 'refused'; message: string }
   | { kind: 'sandboxed'; result: WinSandboxRunResult };
+
+/**
+ * 2026-11-26（用户裁定补 **fail-closed**）：执行期"无法施加隔离"时的最终语义。
+ *
+ * 两条触发：① 配置 `sandbox.landlock.failClosed=true`；② **该命令已因"写隔离可证"免掉审批卡**
+ * （`approvalSkipped`）—— 免审批是拿"会被真隔离"换来的，执行期做不到就必须拒绝，
+ * 否则就是"已免审批却裸跑"。（纯函数，便于单测；与 bash 的同名判定同口径）
+ */
+export function resolvePowerShellFailClosed(input: {
+  failClosed: boolean;
+  approvalSkipped?: boolean;
+}): boolean {
+  return input.failClosed || input.approvalSkipped === true;
+}
 
 /**
  * 纯判据：powershell 是否应走 Windows 写隔离。
@@ -214,7 +233,7 @@ export async function runPowerShellInWindowsSandbox(
       return {
         kind: 'refused',
         message:
-          `已开启 sandbox.landlock.bashEnabled，但 Windows 写隔离未就绪（${detail}；failClosed=true）⇒ 拒绝执行 powershell。` +
+          `Windows 写隔离未就绪（${detail}；fail-closed：failClosed=true 或该命令已因写隔离可证而免审批）⇒ 拒绝执行 powershell。` +
           `请运行 bun run build:win-sandbox 构建 helper，或关闭该开关。［sandbox_denied: init］`,
       };
     }
@@ -272,7 +291,13 @@ export async function runPowerShellCommand(
     ? await runPowerShellInWindowsSandbox(
         input,
         {
-          failClosed: config.failClosed,
+          // 2026-11-26（fail-closed）：已因"能隔离"免审批的命令 ⇒ 执行期不可用必须拒绝
+          failClosed: resolvePowerShellFailClosed({
+            failClosed: config.failClosed,
+            ...(input.approvalSkipped !== undefined
+              ? { approvalSkipped: input.approvalSkipped }
+              : {}),
+          }),
           extraWritablePaths: config.bashExtraWritablePaths,
         },
         input.sandboxDeps ?? {}

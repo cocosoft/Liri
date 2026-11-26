@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { resolveTempDir } from '@openliri/infra/environment';
 import {
   buildPowerShellInvocation,
+  resolvePowerShellFailClosed,
   runPowerShellInWindowsSandbox,
   shouldSandboxPowerShell,
   type PowerShellRunInput,
@@ -171,6 +172,22 @@ describe('buildPowerShellInvocation', () => {
     expect(decoded).toBe(
       "Get-ChildItem | Select-Object -First 5 | Select-String -NotMatch -SimpleMatch 'a''b'"
     );
+  });
+});
+
+describe('resolvePowerShellFailClosed（2026-11-26 fail-closed）', () => {
+  test('配置 failClosed=true ⇒ 拒绝', () => {
+    expect(resolvePowerShellFailClosed({ failClosed: true })).toBe(true);
+  });
+
+  test('卡已因"写隔离可证"免掉（approvalSkipped）⇒ 即使 failClosed=false 也必须拒绝', () => {
+    expect(
+      resolvePowerShellFailClosed({ failClosed: false, approvalSkipped: true })
+    ).toBe(true);
+  });
+
+  test('未免审批 + failClosed=false ⇒ 维持降级语义（不拒绝）', () => {
+    expect(resolvePowerShellFailClosed({ failClosed: false })).toBe(false);
   });
 });
 

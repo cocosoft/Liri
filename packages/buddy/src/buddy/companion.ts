@@ -129,8 +129,7 @@ export type StoredCompanionConfig = NonNullable<GlobalConfig['companion']>;
 /** 是否为合法物种 id（用户可选择伙伴类型，2026-11-25） */
 export function isSpecies(value: unknown): value is Species {
   return (
-    typeof value === 'string' &&
-    (SPECIES as readonly string[]).includes(value)
+    typeof value === 'string' && (SPECIES as readonly string[]).includes(value)
   );
 }
 

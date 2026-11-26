@@ -83,10 +83,12 @@ export function buildHatchProfile(
 ): HatchProfile {
   const speciesName = SPECIES_NAMES[bones.species] ?? bones.species;
   const prefix =
-    NAME_PREFIXES[stableIndex(`${userId}:${bones.species}`, NAME_PREFIXES.length)];
-  const ranked = (Object.entries(bones.stats) as Array<[StatName, number]>).sort(
-    (a, b) => b[1] - a[1]
-  );
+    NAME_PREFIXES[
+      stableIndex(`${userId}:${bones.species}`, NAME_PREFIXES.length)
+    ];
+  const ranked = (
+    Object.entries(bones.stats) as Array<[StatName, number]>
+  ).sort((a, b) => b[1] - a[1]);
   const traits = ranked
     .slice(0, 2)
     .map(([stat]) => STAT_TRAITS[stat])

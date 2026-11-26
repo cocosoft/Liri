@@ -40,7 +40,7 @@ describe('P1：审批卡唯一构造点', () => {
     expect(afterExecute.approvalId).not.toBe(beforeDecision.approvalId);
   });
 
-  it('命令类工具 ⇒ 六档选项（仅这次 / 命令级 / 本工作区 / 本会话工具级 / 工具级 / 拒绝）', () => {
+  it('命令类工具 ⇒ 七档选项（含本会话工具级 + 本会话整个工具级高风险）', () => {
     const card = buildToolApprovalCard({
       toolOrName: 'bash',
       input: { command: 'ls' },
@@ -51,6 +51,7 @@ describe('P1：审批卡唯一构造点', () => {
       'allowlist_command',
       'allowlist_workspace_command',
       'allowlist_tool_session',
+      'allowlist_tool_session_all',
       'allowlist_tool',
       'deny',
     ]);
@@ -83,6 +84,36 @@ describe('P1：审批卡唯一构造点', () => {
       sessionId: 's',
     });
     expect(card.options).toEqual(['approve', 'deny']);
+  });
+
+  // 2026-11-26（真机 session_mwx27kqg5c7fbe54f4）：会话级放行档只应在本命令**能被兑现**时下发。
+  // `python -c …` 属内联代码/危险命令：`allowlist_tool_session` 选了也不会放行下一条
+  // （真机：用户连点 4 次该选项，仍每条命令各弹一张卡）⇒ 卡片不得再提供它。
+  it('内联代码解释器命令 ⇒ 不下发「本会话内此工具都允许」（选了也不生效）', () => {
+    const card = buildToolApprovalCard({
+      toolOrName: 'bash',
+      input: { command: 'python -c "print(1)"' },
+      sessionId: 's',
+    });
+    expect(card.options).not.toContain('allowlist_tool_session');
+    // 仍保留：仅这次 / 精确命令级 / 本工作区 / 本会话整个工具（高风险）/ 整工具永久 / 拒绝
+    expect(card.options).toEqual([
+      'approve',
+      'allowlist_command',
+      'allowlist_workspace_command',
+      'allowlist_tool_session_all',
+      'allowlist_tool',
+      'deny',
+    ]);
+  });
+
+  it('普通命令（同前缀可兑现）⇒ 保留「本会话内此工具都允许」', () => {
+    const card = buildToolApprovalCard({
+      toolOrName: 'bash',
+      input: { command: 'bun run build' },
+      sessionId: 's',
+    });
+    expect(card.options).toContain('allowlist_tool_session');
   });
 
   it('外部发送类工具 ⇒ 不给永久放行选项（仅这次/拒绝）', () => {
@@ -130,7 +161,27 @@ describe('P1：审批卡唯一构造点', () => {
  * `buildApprovalOptions`（唯一真源），下面锁死四类判定。
  */
 describe('P0：审批卡选项唯一真源 buildApprovalOptions', () => {
-  it('命令类 + 有命令文本 ⇒ 六档 + 拒绝', () => {
+  // 2026-11-26：本用例原用 `node -e "console.log(1)"`（内联代码）断言六档，修复后该类命令
+  // 不再下发「本会话内此工具都允许」（选了也不生效，见下方专用用例）⇒ 改用同前缀可兑现的命令。
+  it('命令类 + 有命令文本（同前缀可兑现）⇒ 七档 + 拒绝', () => {
+    expect(
+      buildApprovalOptions({
+        toolName: 'bash',
+        command: 'bun run build',
+        risk: RiskClass.SHELL,
+      })
+    ).toEqual([
+      'approve',
+      'allowlist_command',
+      'allowlist_workspace_command',
+      'allowlist_tool_session',
+      'allowlist_tool_session_all',
+      'allowlist_tool',
+      'deny',
+    ]);
+  });
+
+  it('内联代码解释器 ⇒ 六档（不给温和的会话级；给显式高风险档）', () => {
     expect(
       buildApprovalOptions({
         toolName: 'bash',
@@ -141,7 +192,7 @@ describe('P0：审批卡选项唯一真源 buildApprovalOptions', () => {
       'approve',
       'allowlist_command',
       'allowlist_workspace_command',
-      'allowlist_tool_session',
+      'allowlist_tool_session_all',
       'allowlist_tool',
       'deny',
     ]);

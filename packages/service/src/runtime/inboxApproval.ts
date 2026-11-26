@@ -234,6 +234,23 @@ function isSessionToolAllowReply(
 }
 
 /**
+ * 2026-11-26（用户裁定）：**显式高风险档** —— 本会话内该工具的**全部**命令都放行
+ * （含危险命令 / 内联代码；仅内存、随会话清理，不落持久化规则）。
+ *
+ * 与 `allowlist_tool_session`（只放行只读 + 同前缀命令）的区别就在这里：
+ * 后者对 `python -c …` 这类命令不可兑现，故两者并存、文案区分「高风险」。
+ */
+function isSessionToolAllowAllReply(
+  reply: string,
+  selectedOption?: string
+): boolean {
+  return (
+    reply === 'allowlist_tool_session_all' ||
+    selectedOption === 'allowlist_tool_session_all'
+  );
+}
+
+/**
  * PR-2：按回复值解析放行缓存档位（`approve_session` ⇒ 不过期；`approve_task` ⇒ 仅本任务）。
  *
  * P2-4（2026-11-07）：缺省档返回 `APPROVAL_SCOPE_COMMAND_TTL`（字面量 `'once'`）——
@@ -700,6 +717,25 @@ async function applyApprovalSideEffects(
       );
     } else {
       logger.warn('「本会话工具级放行」缺少工具名，已跳过', {
+        sessionId: current.sessionId,
+      });
+    }
+  }
+  // 2026-11-26（用户裁定）：显式高风险档 —— 本会话内整个工具全部放行（含危险命令）。
+  if (isSessionToolAllowAllReply(reply, selectedOption)) {
+    const toolName =
+      typeof current.metadata?.toolName === 'string'
+        ? current.metadata.toolName
+        : '';
+    if (toolName) {
+      getApprovedCommandRegistry().allowToolForSession(
+        current.sessionId,
+        toolName,
+        undefined,
+        { allCommands: true }
+      );
+    } else {
+      logger.warn('「本会话整个工具放行」缺少工具名，已跳过', {
         sessionId: current.sessionId,
       });
     }

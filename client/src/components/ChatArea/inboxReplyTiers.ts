@@ -20,6 +20,8 @@ export const INBOX_REPLY_LABEL_KEYS: Record<string, string> = {
   allowlist_tool: "chat.inboxReplyAllowTool",
   // 2026-11-24：本会话内「该工具都允许」（不落持久化规则，会话结束失效）
   allowlist_tool_session: "chat.inboxReplyAllowToolSession",
+  // 2026-11-26（用户裁定）：本会话内**整个工具**全部命令都允许（含危险命令，高风险）
+  allowlist_tool_session_all: "chat.inboxReplyAllowToolSessionAll",
   allowlist_command: "chat.inboxReplyAllowCommand",
   allowlist_workspace_command: "chat.inboxReplyAllowWorkspaceCommand",
   reject: "chat.inboxReplyReject",

@@ -52,6 +52,8 @@ const TIER_ORDER = [
   "allowlist_workspace_command",
   // 2026-11-24：本会话内「该工具都允许」（内存放行，会话结束失效）
   "allowlist_tool_session",
+  // 2026-11-26（用户裁定）：本会话内整个工具全部命令都允许（含危险命令，高风险）
+  "allowlist_tool_session_all",
   "allowlist_tool",
   "deny",
   "reject",

@@ -993,6 +993,8 @@ const zhBase = {
     inboxReplyAllowTool: "以后整个工具免审批",
     // 2026-11-24：本会话内该工具整体放行（内存，会话结束失效；模型换命令不再逐条弹卡）
     inboxReplyAllowToolSession: "本会话内，此工具都允许",
+    // 2026-11-26：显式高风险档 —— 本会话内整个工具的全部命令都允许（含危险命令 / 内联代码）
+    inboxReplyAllowToolSessionAll: "本会话内，整个工具都允许（高风险）",
     inboxReplyAllowCommand: "以后这个命令免审批",
     inboxReplyAllowWorkspaceCommand: "本工作区永久信任此命令",
     // PR-2（2026-10-23）：四档审批 —— 本会话都允许 / 始终允许（工具+参数指纹）

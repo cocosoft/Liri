@@ -127,6 +127,50 @@ describe('ApprovedCommandRegistry 放行缓存', () => {
     reg.dispose();
   });
 
+  // 2026-11-26（用户裁定，真机 session_mwx27kqg5c7fbe54f4）：显式高风险档 ——
+  // 本会话内该工具的**全部**命令都放行（含危险命令 / 内联代码），仅内存、随会话清理。
+  it('会话级高风险档（allCommands）：整个工具全放行，含危险命令；clearSession 后失效', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    reg.allowToolForSession('s-all', 'bash', undefined, { allCommands: true });
+
+    // ① 内联代码 / 危险命令 / 任意命令 ⇒ 都放行（这是用户明确点选的高风险档）
+    expect(reg.isCommandAllowedForSession('s-all', 'bash', 'ls -la')).toBe(
+      true
+    );
+    expect(
+      reg.isCommandAllowedForSession('s-all', 'bash', 'python -c "print(1)"')
+    ).toBe(true);
+    expect(
+      reg.isCommandAllowedForSession('s-all', 'bash', 'rmdir /s /q tmp')
+    ).toBe(true);
+    expect(
+      reg.isCommandAllowedForSession('s-all', 'bash', 'git push origin main')
+    ).toBe(true);
+    // ② 其他会话 / 其他工具不受影响
+    expect(reg.isCommandAllowedForSession('s-other', 'bash', 'ls')).toBe(false);
+    expect(reg.isCommandAllowedForSession('s-all', 'powershell', 'dir')).toBe(
+      false
+    );
+    // ③ 会话结束 ⇒ 回收（不落持久化、不跨会话）
+    reg.clearSession('s-all');
+    expect(reg.isCommandAllowedForSession('s-all', 'bash', 'ls -la')).toBe(
+      false
+    );
+    reg.dispose();
+  });
+
+  it('温和档（仅前缀）不会被高风险档误伤：未点高风险档时危险命令仍不放行', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    reg.allowToolForSession('s-mild', 'bash', 'bun run build');
+    expect(
+      reg.isCommandAllowedForSession('s-mild', 'bash', 'python -c "print(1)"')
+    ).toBe(false);
+    expect(
+      reg.isCommandAllowedForSession('s-mild', 'bash', 'bun run typecheck')
+    ).toBe(true);
+    reg.dispose();
+  });
+
   // 2026-11-25（审计加固）：前缀放行不得覆盖「危险基命令 / 转执行包装器 / 内联代码形态」
   it('P4 加固：危险命令、转执行包装器、内联代码不获得前缀放行', () => {
     const reg = new ApprovedCommandRegistry(60_000, false);

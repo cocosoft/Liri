@@ -34,6 +34,7 @@ import {
 import {
   hashCommandForExecution,
   hashApprovalFingerprint,
+  isSessionToolAllowApplicable,
   type ApprovalScope,
   type ApprovalSnapshot,
 } from './ApprovedCommandRegistry.js';
@@ -121,21 +122,27 @@ export function buildApprovalOptions(params: {
   if (isCommandTool && isDangerousPrefixAmplifyingCommand(command)) {
     return ['approve', 'deny'];
   }
-  return isCommandTool
-    ? [
-        'approve',
-        'allowlist_command',
-        // G3（2026-11-14）：命令级「本工作区永久信任」—— 精确命令 + 工作区作用域
-        'allowlist_workspace_command',
-        // 2026-11-24：本会话内「整个工具」都允许 —— 连续多条不同命令时只批一次
-        // （模型逐条探测/调试时不再每条都弹卡；会话结束即失效，不落持久化规则）
-        'allowlist_tool_session',
-        'allowlist_tool',
-        'deny',
-      ]
-    : risk === RiskClass.EXTERNAL
+  if (!isCommandTool) {
+    return risk === RiskClass.EXTERNAL
       ? ['approve', 'deny']
       : ['approve', 'allowlist_call', 'deny'];
+  }
+  const commandOptions = [
+    'approve',
+    'allowlist_command',
+    // G3（2026-11-14）：命令级「本工作区永久信任」—— 精确命令 + 工作区作用域
+    'allowlist_workspace_command',
+  ];
+  // 2026-11-26：只在**能兑现**时下发「本会话内，此工具都允许」——
+  // 内联代码解释器（`python -c` / `node -e`）等危险命令选了也不会生效（真机实证）。
+  if (isSessionToolAllowApplicable(command)) {
+    commandOptions.push('allowlist_tool_session');
+  }
+  // 2026-11-26（用户裁定）：显式高风险档 —— 本会话内整个工具全部放行（含危险命令 / 内联代码）。
+  // 与上面的温和档并存：温和档不可兑现时，用户仍有"本会话内不再弹卡"的出路，但代价可见（高风险）。
+  commandOptions.push('allowlist_tool_session_all');
+  commandOptions.push('allowlist_tool', 'deny');
+  return commandOptions;
 }
 
 /**

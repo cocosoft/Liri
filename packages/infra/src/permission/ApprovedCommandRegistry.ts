@@ -62,6 +62,16 @@ const logger = getLogger('permission:approvedCommands');
 interface SessionToolAllow {
   /** 批准时的命令前缀（首 token；解释器/运行器取前两 token）；缺省 ⇒ 只按只读放行 */
   prefix?: string;
+  /**
+   * 2026-11-26（用户裁定）：**显式高风险档**（`allowlist_tool_session_all`）——
+   * 本会话内该工具的**全部**命令都放行，含危险命令 / 内联代码。
+   *
+   * 与 `prefix` 档的区别：`prefix` 是"同类命令"的温和档（危险命令永不豁免）；
+   * 本档是用户在卡片上**明确点选**的高风险档，等价于 `allowlist_tool`（整工具永久）
+   * 但**只在本次会话内有效**、不落持久化规则，会话结束 / `clearSession` 即失效。
+   * 执行层的硬拦截（路径越界 / 沙箱 / 命令级硬拒绝）不受影响，仍逐条生效。
+   */
+  allCommands?: boolean;
 }
 
 /** 需要"子命令/开关"共同构成前缀的启动器（`bun run` 与 `bun -e` 不得互相放行） */
@@ -130,6 +140,25 @@ function commandApprovalPrefix(command: string): string | undefined {
     return `${base} ${second}`;
   }
   return base;
+}
+
+/**
+ * 2026-11-26（真机 `session_mwx27kqg5c7fbe54f4`）：「本会话内，此工具都允许」
+ * 这一档能否**兑现**这条命令 —— 审批卡只应在能兑现时下发该选项。
+ *
+ * 该档位只放行「只读命令」与「与批准时同前缀的命令」（见 SessionToolAllow），
+ * 且 `isCommandAllowedForSession` 对危险命令一律不豁免。而 `python -c …` /
+ * `node -e …` 这类**内联代码解释器**：`commandApprovalPrefix` 返回 `undefined`
+ * （不给前缀）且 `isDangerousApprovalCommand` 为 `true` ⇒ 选了也**不会**放行下一条。
+ *
+ * 真机后果（修复前）：卡片仍提供该选项，用户连点 4 次「本会话内允许此工具」，
+ * 仍然每条 `python …` 命令各弹一张卡（该会话共 9 张卡）—— 选项形同虚设。
+ */
+export function isSessionToolAllowApplicable(command: string): boolean {
+  const trimmed = (command ?? '').trim();
+  if (!trimmed) return false;
+  if (isDangerousApprovalCommand(trimmed)) return false;
+  return commandApprovalPrefix(trimmed) !== undefined;
 }
 
 /** 批准记录默认 TTL（毫秒）— P0-1: 60s → 5min，匹配"批准→LLM 续跑"真实耗时（实测 75–131s） */
@@ -709,13 +738,23 @@ export class ApprovedCommandRegistry {
   allowToolForSession(
     sessionId: string,
     toolName: string,
-    command?: string
+    command?: string,
+    opts?: { allCommands?: boolean }
   ): void {
     if (!sessionId || !toolName) return;
     let map = this.sessionToolAllows.get(sessionId);
     if (!map) {
       map = new Map();
       this.sessionToolAllows.set(sessionId, map);
+    }
+    // 2026-11-26：显式高风险档 —— 整个工具在本会话内全部放行（不写前缀）
+    if (opts?.allCommands) {
+      map.set(toolName, { allCommands: true });
+      logger.warn('本会话工具级放行已写入（高风险：整个工具全部命令）', {
+        sessionId,
+        toolName,
+      });
+      return;
     }
     // 2026-11-25：危险命令（`git push` 等）不写前缀 —— 否则一次「本会话工具级允许」
     // 会把 `git push origin main` 放大成 `git push --force / --mirror`（同命令头放大）。
@@ -735,9 +774,10 @@ export class ApprovedCommandRegistry {
    * 该工具在本会话内是否放行**这条命令**（会话结束 / `clearSession` 即失效）。
    *
    * 判据（P4，fail-closed）：
-   *   ① 只读命令（单条或纯只读串联，复用 `checkCompoundReadOnly`）⇒ 放行；
-   *   ② 否则命令前缀（`commandApprovalPrefix`）必须与批准时一致；
-   *   ③ 其余 ⇒ 不放行（继续走审批）。
+   *   ① 显式高风险档（`allCommands`）⇒ 放行（用户明确点选；执行层硬拦截仍生效）；
+   *   ② 只读命令（单条或纯只读串联，复用 `checkCompoundReadOnly`）⇒ 放行；
+   *   ③ 否则命令前缀（`commandApprovalPrefix`）必须与批准时一致；
+   *   ④ 其余 ⇒ 不放行（继续走审批）。
    */
   isCommandAllowedForSession(
     sessionId: string | undefined,
@@ -749,6 +789,7 @@ export class ApprovedCommandRegistry {
     if (!allow) return false;
     const trimmed = (command ?? '').trim();
     if (!trimmed) return false;
+    if (allow.allCommands) return true;
     // 2026-11-25：危险命令一律不因会话级放行而豁免（只读判据也不适用于它）
     if (isDangerousApprovalCommand(trimmed)) return false;
     if (checkCompoundReadOnly(trimmed).allowed) return true;

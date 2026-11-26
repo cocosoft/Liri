@@ -1034,6 +1034,10 @@ const enBase = {
     inboxReplyAllowTool: "Never ask for this tool",
     // 2026-11-24: whole-tool allow for this session only (in-memory; cleared when the session ends)
     inboxReplyAllowToolSession: "Allow this tool for this session",
+    // 2026-11-26: explicit high-risk tier — every command of this tool for this session
+    // (dangerous commands / inline code included)
+    inboxReplyAllowToolSessionAll:
+      "Allow every command of this tool for this session (high risk)",
     inboxReplyAllowCommand: "Never ask for this command",
     inboxReplyAllowWorkspaceCommand:
       "Always trust this command in this workspace",

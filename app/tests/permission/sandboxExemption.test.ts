@@ -4,8 +4,9 @@
 /**
  * PR-3b：沙箱豁免判定（`permission/sandboxExemption`）单测。
  *
- * 断言的是**安全姿态**：S1–S4 任一不满足都必须**不豁免**（fail-closed），
- * 且"命令类"永远不因沙箱而免审批（S4 的网络/端口范围无法证明）。
+ * 断言的是**安全姿态**：S1–S4 任一不满足都必须**不豁免**（fail-closed）。
+ * 命令类（SHELL）自 2026-11-26 起改为"写隔离真的生效 ⇒ 可豁免"，但写隔离挡不住的
+ * 危险命令（删除 / 提权 / 系统配置）仍**必须**保持人工审批。
  */
 
 import { describe, expect, it } from 'bun:test';
@@ -47,16 +48,59 @@ describe('PR-3b 沙箱豁免：S1 隔离可证', () => {
 });
 
 describe('PR-3b 沙箱豁免：S4 / 风险级', () => {
-  it('命令类（SHELL）永远不豁免（网络/端口无法证明）', () => {
+  // 2026-11-26（用户裁定「沙箱内执行 ⇒ 免审批」）：命令类的判据换成"写隔离是否真的生效"
+  const shellSignal = {
+    mode: 'none' as const,
+    permissionLevel: 'full' as const,
+    shellWriteIsolated: true,
+  };
+
+  it('写隔离生效 + execution + full + 非危险命令 ⇒ 豁免', () => {
+    expect(
+      resolveSandboxExemption({
+        signal: shellSignal,
+        risk: RiskClass.SHELL,
+        sandboxLevel: 'execution',
+        input: { command: 'python -c "print(1)"' },
+        workspacePath: workspace,
+      })
+    ).toEqual({ exempt: true, reason: 'sandbox-isolated' });
+  });
+
+  it('没有写隔离证据 ⇒ 不豁免（缺 shellWriteIsolated 仍 fail-closed）', () => {
     expect(
       resolveSandboxExemption({
         signal: isolated,
         risk: RiskClass.SHELL,
         sandboxLevel: 'execution',
-        input: { command: 'ls' },
+        input: { command: 'python -c "print(1)"' },
         workspacePath: workspace,
       })
     ).toEqual({ exempt: false, reason: 'shell-unprovable' });
+  });
+
+  it('危险命令（写隔离挡不住的删除/提权类）⇒ 仍不豁免', () => {
+    expect(
+      resolveSandboxExemption({
+        signal: shellSignal,
+        risk: RiskClass.SHELL,
+        sandboxLevel: 'execution',
+        input: { command: 'rm -rf /tmp/x' },
+        workspacePath: workspace,
+      })
+    ).toEqual({ exempt: false, reason: 'dangerous-command' });
+  });
+
+  it('权限位不足（standard < full）⇒ 不豁免', () => {
+    expect(
+      resolveSandboxExemption({
+        signal: { ...shellSignal, permissionLevel: 'standard' as const },
+        risk: RiskClass.SHELL,
+        sandboxLevel: 'execution',
+        input: { command: 'python -c "print(1)"' },
+        workspacePath: workspace,
+      })
+    ).toEqual({ exempt: false, reason: 'permission-insufficient' });
   });
 
   it('外部副作用 / 未声明 ⇒ 不豁免', () => {

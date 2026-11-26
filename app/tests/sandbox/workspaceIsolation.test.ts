@@ -298,12 +298,14 @@ describe('方案 A：默认工作区 → 文件 IO 端口', () => {
       permissionLevel: 'standard',
       modeHint: resolveFileIoToolModeHint('file-io'),
     });
-    expect(signal).toEqual({
+    expect(signal).toMatchObject({
       mode: 'container',
       permissionLevel: 'standard',
       fileIoIsolated: true,
       fileIoRoots: [hostDir],
     });
+    // 2026-11-26：命令写隔离证据与文件类无关（本机配置决定，只断言"有明确布尔值"）
+    expect(typeof signal.shellWriteIsolated).toBe('boolean');
 
     expect(
       resolveSandboxExemption({

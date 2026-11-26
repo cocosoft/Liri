@@ -92,6 +92,10 @@ import {
   isReadOnlyBashCommand,
 } from '@openliri/infra/security';
 import { feature } from '@openliri/kernel';
+// 2026-11-26（用户裁定「沙箱内执行 ⇒ 免审批」）：写隔离是否**真的**生效（与执行门控同源）
+import { isShellWriteIsolationEffective } from '@modules/sandbox';
+// 危险命令（不得因"沙箱覆盖"而免审批）—— 与审批卡的档位限制同一事实源
+import { requiresApprovalDespiteSandbox } from '@openliri/infra/permission/commandPatterns';
 
 // G18（2026-10-11）：K-5 输出截断常量/函数已抽至 `./bashOutputTruncate`（**纯搬迁**，语义不变）。
 // 工具执行审批链路（P0-4 / S1-1）：已批准命令放行缓存
@@ -460,6 +464,17 @@ export class BashTool extends BaseTool {
         cwd ?? context?.options?.cwd ?? safeProcessCwd() ?? ''
       );
 
+      // 2026-11-26（用户裁定「沙箱内执行 ⇒ 免审批」）：本次命令**会不会真的进写隔离**。
+      // - 判据与执行门控同源：非只读（`isReadOnlyBashCommand`）+ 平台写隔离能力就绪；
+      // - 「写隔离也挡不住」的那一类（删除/提权/系统配置…）**仍要人工确认**，见
+      //   `requiresApprovalDespiteSandbox`（危险命令减去内联代码形态）；
+      // - 只把「ask 级」卡片降级为放行；`deny` / 硬拦截层照旧全跑（见下方 `skipAsk`）。
+      const sandboxRequired = !isReadOnlyBashCommand(std.effectiveCommand);
+      const sandboxCoversAsk =
+        sandboxRequired &&
+        isShellWriteIsolationEffective() &&
+        !requiresApprovalDespiteSandbox(command);
+
       // 报告开始执行
       onProgress?.({
         toolUseID: context.toolUseId || 'bash-tool',
@@ -511,11 +526,21 @@ export class BashTool extends BaseTool {
       // 口径：放宽档下跳过 **ask 级**拦截（analyzer ask / 白名单 ask / 解释器确认），
       // **deny / 危险命令 / 路径越界 / 沙箱白名单等硬拦截一律照跑**。
       const policyAutoApproved = context.policyContext?.autoApproved === true;
+      // 2026-11-26（用户裁定「沙箱内执行 ⇒ 免审批」）：命令将在写隔离内执行 ⇒ 同样只跳过
+      // **ask 级**拦截（即带审批标记的结果）。deny / 危险命令 / 路径越界 / 沙箱二次校验
+      // 等硬拦截**照旧全跑**，因此这不构成"沙箱内可以执行任意命令"。
       const skipAskByPolicy = (block: unknown): boolean =>
-        policyAutoApproved &&
+        (policyAutoApproved || sandboxCoversAsk) &&
         typeof block === 'object' &&
         block !== null &&
         (block as { requireApproval?: unknown }).requireApproval === true;
+      if (sandboxCoversAsk) {
+        logger.info('bash: sandbox_covers_approval', {
+          sessionId: context.sessionId,
+          commandPreview: command.slice(0, 200),
+          note: '命令将在平台写隔离内执行 ⇒ 跳过 ask 级卡片；deny/危险命令/硬拦截照旧',
+        });
+      }
       // P0-4: 放行即需审计记录（session + hash + 命令）确保可追溯
       if (bypassAsk) {
         logger.info('已批准命令放行', {
@@ -561,6 +586,7 @@ export class BashTool extends BaseTool {
         timeout,
         context,
         startTime,
+        sandboxRequired,
         onProgress,
       });
     } catch (error) {
@@ -1027,10 +1053,20 @@ export class BashTool extends BaseTool {
     timeout: number;
     context: ToolUseContext;
     startTime: number;
+    /** 2026-11-26：非只读命令强制写隔离（由 `execute` 前段统一判定，避免两处口径漂移） */
+    sandboxRequired: boolean;
     onProgress?: ToolCallProgress<any>;
   }): Promise<ToolResult<unknown>> {
-    const { command, cwd, env, timeout, context, startTime, onProgress } =
-      params;
+    const {
+      command,
+      cwd,
+      env,
+      timeout,
+      context,
+      startTime,
+      sandboxRequired,
+      onProgress,
+    } = params;
 
     // F5 修复：操作审计日志
     // A1（2026-10-09）：sessionId 必须取 context.sessionId（此前误用 toolUseId，
@@ -1157,12 +1193,9 @@ export class BashTool extends BaseTool {
       : BASH_EXEC_MAX_BUFFER_BYTES;
 
     // 2026-11-26（用户裁定）：**凡「非只读」命令一律强制进平台沙箱**（不再由 bashEnabled 决定）。
-    // 判定复用安全层的唯一事实源 `isReadOnlyBashCommand`（含只读前缀 / git 只读 / 参数级禁区，
-    // 含 shell operator 的一律按非只读处理）⇒ `python -c …` / `rmdir …` / 写命令都进沙箱；
-    // `dir` / `ls` / `git status` 等只读命令不进（沙箱只隔离"写"，只读无隔离必要）。
+    // 判定在 `execute` 前段统一算出（`sandboxRequired`，与审批豁免同源），此处只接线：
+    // `python -c …` / `rmdir …` / 写命令都进沙箱；`dir` / `ls` / `git status` 等只读不进。
     // 沙箱不可用 ⇒ 降级 plain（保留审批卡）+ `bash: sandbox_required_unavailable` 告警。
-    const std = standardizeCommand(command);
-    const sandboxRequired = !isReadOnlyBashCommand(std.effectiveCommand);
     const { stdout: rawStdout, stderr: rawStderr } = await execBashCommand({
       command,
       cwd: typeof execOptions.cwd === 'string' ? execOptions.cwd : undefined,

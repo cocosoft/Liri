@@ -33,6 +33,8 @@
  */
 import { describe, it, expect, afterEach, spyOn } from 'bun:test';
 import { getLogger } from '@openliri/infra/monitoring';
+// 2026-11-26：本机是否真能写隔离（决定"内联代码是否由沙箱接管、不再弹卡"）
+import { isShellWriteIsolationEffective } from '@modules/sandbox';
 import { BashTool } from '../../src/tools/bash/BashTool.js';
 import {
   ApprovedCommandRegistry,
@@ -109,17 +111,25 @@ describe('BashTool 放行通道（P0-4）', () => {
 
   // 2026-11-24（P4 收紧）/ 2026-11-25（审计加固）：本会话工具级放行只覆盖
   // 「只读命令」与非内联的**同前缀**命令；内联代码（`bun -e`）只认精确命令。
-  it('本会话工具级放行：只读免审批、内联代码仍要求审批，硬拦截仍生效', async () => {
+  it('本会话工具级放行：只读免审批、内联代码不被前缀放行（沙箱覆盖时由沙箱接管），硬拦截仍生效', async () => {
     const reg = new ApprovedCommandRegistry(60_000, false);
     reg.allowToolForSession('session-1', 'bash', 'bun -e "console.log(0)"');
     const tool = new BashTool(reg);
+    // 2026-11-26（用户裁定「沙箱内执行 ⇒ 免审批」）：写隔离生效时，内联代码由沙箱接管、
+    // 不再弹卡 —— 因此本用例的 ①/④ 断言必须按"本机是否真能写隔离"分流。
+    const writeIsolated = isShellWriteIsolationEffective();
 
-    // ① 内联代码形态**不**获得前缀放行 ⇒ 换一条 `bun -e` 仍需审批
+    // ① 内联代码形态**不**获得前缀放行 ⇒ 换一条 `bun -e` 不会被前缀规则放行；
+    //    若写隔离生效 ⇒ 沙箱覆盖 ⇒ 直接执行（非"被前缀放行"）
     const inline = await tool.execute(
       { command: 'bun -e "console.log(\'session-allow-ok\')"' },
       makeContext('session-1')
     );
-    expect(inline.metadata?.securityIntercepted).toBe(true);
+    if (writeIsolated) {
+      expect(inline.success).toBe(true);
+    } else {
+      expect(inline.metadata?.securityIntercepted).toBe(true);
+    }
 
     // ② 只读命令 ⇒ 免审批直接执行
     const readonly = await tool.execute(
@@ -136,12 +146,16 @@ describe('BashTool 放行通道（P0-4）', () => {
     );
     expect(blocked.metadata?.securityIntercepted).toBe(true);
 
-    // 其他会话不受影响：仍是 ask（securityIntercepted）
+    // 其他会话不受影响：同样的内联代码在无放行会话里也不因放行缓存而免审批
     const otherSession = await tool.execute(
       { command: 'bun -e "console.log(\'other-session\')"' },
       makeContext('session-2')
     );
-    expect(otherSession.metadata?.securityIntercepted).toBe(true);
+    if (writeIsolated) {
+      expect(otherSession.success).toBe(true);
+    } else {
+      expect(otherSession.metadata?.securityIntercepted).toBe(true);
+    }
     reg.dispose();
   });
 });

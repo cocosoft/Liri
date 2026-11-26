@@ -42,6 +42,10 @@ import {
   securityIntegrationService,
 } from '@openliri/infra/security';
 import { SandboxSecurityChecker } from '@modules/sandbox';
+// 2026-11-26（用户裁定「沙箱内执行 ⇒ 免审批」）：写隔离是否**真的**生效（与执行门控同源）
+import { isShellWriteIsolationEffective } from '@modules/sandbox';
+// 危险命令不因"沙箱覆盖"而免审批 —— 与审批卡档位限制同一事实源
+import { requiresApprovalDespiteSandbox } from '@openliri/infra/permission/commandPatterns';
 import { completeSecuritySystem } from '@openliri/infra/security';
 // 2026-11-07 真机：PowerShell 的 ask 此前**没有审批通道**（只回失败文本 ⇒ 永远无法批准），
 // 现与 BashTool 同口径走「审批卡 + 已批准命中」。
@@ -1156,8 +1160,20 @@ export class PowerShellTool extends BaseTool {
         approval.scope,
         workingDirectory ? [workingDirectory] : []
       );
+      // 2026-11-26（用户裁定「沙箱内执行 ⇒ 免审批」）：与 BashTool 同口径 —— 本次命令若会进
+      // 平台写隔离且不属于危险命令，则跳过 **ask 级**卡片；deny / 危险命令等硬拦截照旧。
+      const sandboxCoversAsk =
+        !this.isReadOnly({ command }) &&
+        isShellWriteIsolationEffective() &&
+        !requiresApprovalDespiteSandbox(command);
+      if (sandboxCoversAsk) {
+        logger.info('powershell: sandbox_covers_approval', {
+          sessionId: context.sessionId,
+          commandPreview: command.slice(0, 200),
+        });
+      }
       const securityBlock = buildPowerShellSecurityBlock(decision, {
-        preApproved,
+        preApproved: preApproved || sandboxCoversAsk,
         approval,
         startTime,
         command,

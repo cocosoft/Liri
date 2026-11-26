@@ -162,6 +162,9 @@ export {
   isSandboxSignalUsable,
 } from './sandboxExecutionSignal';
 export type { ResolveSandboxSignalParams } from './sandboxExecutionSignal';
+// 2026-11-26（用户裁定「沙箱内执行 ⇒ 免审批」）：命令写隔离是否真的生效（与执行门控同源）
+export { isShellWriteIsolationEffective } from './shellWriteIsolation';
+export type { ShellWriteIsolationParams } from './shellWriteIsolation';
 
 // 2026-08-30 R03-002 收敛：SandboxImpl / landlock 统一出口
 // 2026-09-29：`SandboxImpl`（`SandboxManagerImpl` / `createSandboxManager` / 各平台沙箱类）

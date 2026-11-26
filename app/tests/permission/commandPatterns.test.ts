@@ -15,6 +15,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   buildCommandContentPattern,
   isDangerousApprovalCommand,
+  requiresApprovalDespiteSandbox,
   isInterpreterCommandHead,
   normalizeCommandHead,
 } from '@openliri/infra/permission/commandPatterns';
@@ -142,5 +143,17 @@ describe('壳内建与危险命令头：不得按前缀授权（2026-11-25）', 
     expect(
       isDangerousApprovalCommand('cd "E:\\a" & python -c "print(1)"')
     ).toBe(false);
+  });
+
+  // 2026-11-26（用户裁定「沙箱内执行 ⇒ 免审批」）：危险命令 **减去**内联代码形态
+  it('requiresApprovalDespiteSandbox：内联代码免审批，删除/提权类仍要审批', () => {
+    expect(requiresApprovalDespiteSandbox('python -c "print(1)"')).toBe(false);
+    expect(requiresApprovalDespiteSandbox('node -e "console.log(1)"')).toBe(
+      false
+    );
+    expect(requiresApprovalDespiteSandbox('mkdir out')).toBe(false);
+    expect(requiresApprovalDespiteSandbox('rm -rf build')).toBe(true);
+    expect(requiresApprovalDespiteSandbox('del /s /q C:\\temp')).toBe(true);
+    expect(requiresApprovalDespiteSandbox('format C:')).toBe(true);
   });
 });

@@ -28,6 +28,7 @@ import type {
 import { readLandlockConfig } from './landlock/config';
 import { LandlockDetector } from './landlock/LandlockDetector';
 import { readSandboxPermissionLevel } from './permissionLevel';
+import { isShellWriteIsolationEffective } from './shellWriteIsolation';
 import {
   hasIsolatedFileIo,
   resolveFileIoExecutionMode,
@@ -78,6 +79,11 @@ export interface ResolveSandboxSignalParams {
    * 供沙箱豁免 S4b 校验"工具实际落点根是否被挂载"。
    */
   fileIoRoots?: string[];
+  /**
+   * 覆盖**命令写隔离证据**（缺省读 `isShellWriteIsolationEffective()`）；
+   * 供单测注入，避免依赖真实平台能力探测。
+   */
+  shellWriteIsolated?: boolean;
 }
 
 /**
@@ -109,14 +115,31 @@ export function resolveSandboxExecutionSignal(
   const fileIoRoots =
     params.fileIoRoots ??
     resolveWorkspacePathMaps().map((mount) => mount.hostRoot);
+  // 2026-11-26：命令写隔离证据（平台能力 + 总开关），与执行门控同源
+  const shellWriteIsolated =
+    enabled &&
+    (params.shellWriteIsolated ??
+      isShellWriteIsolationEffective({
+        ...(params.platform ? { platform: params.platform } : {}),
+        ...(params.landlockAvailable !== undefined
+          ? { landlockAvailable: params.landlockAvailable }
+          : {}),
+      }));
   if (!enabled)
-    return { mode: 'none', permissionLevel, fileIoIsolated, fileIoRoots };
+    return {
+      mode: 'none',
+      permissionLevel,
+      fileIoIsolated,
+      fileIoRoots,
+      shellWriteIsolated,
+    };
   if (params.modeHint)
     return {
       mode: params.modeHint,
       permissionLevel,
       fileIoIsolated,
       fileIoRoots,
+      shellWriteIsolated,
     };
 
   const landlockEnabled =
@@ -125,7 +148,13 @@ export function resolveSandboxExecutionSignal(
   const available = params.landlockAvailable ?? hasLandlockEvidence();
   const mode: SandboxExecutionMode =
     landlockEnabled && platform === 'linux' && available ? 'landlock' : 'none';
-  return { mode, permissionLevel, fileIoIsolated, fileIoRoots };
+  return {
+    mode,
+    permissionLevel,
+    fileIoIsolated,
+    fileIoRoots,
+    shellWriteIsolated,
+  };
 }
 
 /**

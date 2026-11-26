@@ -62,6 +62,8 @@ describe('PR-3a 沙箱模式推导', () => {
       permissionLevel: 'standard',
       fileIoIsolated: false,
       fileIoRoots: [],
+      // 2026-11-26：总开关关闭 ⇒ 不声称命令写隔离生效
+      shellWriteIsolated: false,
     });
   });
 
@@ -85,13 +87,27 @@ describe('PR-3a 沙箱模式推导', () => {
         permissionLevel: 'standard',
         fileIoIsolated: false,
         fileIoRoots: [],
+        // 2026-11-26：显式注入，避免依赖真实平台能力探测
+        shellWriteIsolated: false,
       })
     ).toEqual({
       mode: 'landlock',
       permissionLevel: 'standard',
       fileIoIsolated: false,
       fileIoRoots: [],
+      shellWriteIsolated: false,
     });
+  });
+
+  it('命令写隔离证据与 `mode` 正交（Windows Low IL ⇒ mode=none 但 shellWriteIsolated=true）', () => {
+    expect(
+      resolveSandboxExecutionSignal({
+        enabled: true,
+        platform: 'win32',
+        permissionLevel: 'full',
+        shellWriteIsolated: true,
+      })
+    ).toMatchObject({ mode: 'none', shellWriteIsolated: true });
   });
 
   it('启用 + Landlock 开 + Linux，但**能力探测未通过** ⇒ none（配置不等于隔离）', () => {
@@ -140,12 +156,14 @@ describe('PR-3a 沙箱模式推导', () => {
         permissionLevel: 'readonly',
         fileIoIsolated: false,
         fileIoRoots: [],
+        shellWriteIsolated: false,
       })
     ).toEqual({
       mode: 'ssh',
       permissionLevel: 'readonly',
       fileIoIsolated: false,
       fileIoRoots: [],
+      shellWriteIsolated: false,
     });
   });
 });

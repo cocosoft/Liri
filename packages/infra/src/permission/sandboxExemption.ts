@@ -15,8 +15,13 @@
  * - **S4 范围匹配**：路径参数全部在工作区内（含符号链接展开）；
  * - **S5 不可豁免项**：deny/危险命令/凭据/系统目录 —— 由上游硬拦截层先返回，本模块不重复判定。
  *
- * 为什么 `SHELL` 一律不豁免：S4 要求"联网命令须在端口白名单内"，而当前无法从命令串可靠证明
- * （Landlock 端口策略在 `landlock/types.ts` 侧仅是白名单形态）⇒ **fail-closed**。
+ * 为什么 `SHELL` 的判据不同（2026-11-26，用户裁定「沙箱内执行 ⇒ 免审批」）：命令类没有
+ * "路径参数 + 工作区"这种可判形态（S4 不适用），改为要求**写隔离真的生效**的证据
+ * （`signal.shellWriteIsolated` = Windows Low IL / macOS Seatbelt / Linux Landlock 能力探测通过）+ 
+ * 工具声明 `execution` + 权限位 `full` + 且命令**不属于危险命令**（`isDangerousApprovalCommand`）。
+ *
+ * ⚠️ **边界如实**：写隔离只约束"写" ⇒ 命令仍可读任意路径（含凭据目录）与联网。因此
+ * 破坏性 / 提权 / 外发类命令**保持人工审批**（`dangerous-command`），本模块不声称读/网络可证。
  *
  * ⚠️ 本模块是**纯函数**（除 `findWorkspaceEscape` 的 `realpath` 依赖），零状态、零审计；
  * 审计 `approval:sandbox` 由调用方写。
@@ -30,6 +35,13 @@ import { PATH_ARG_KEYS } from '@openliri/infra/utils/toolContract/pathArgs';
 import { findWorkspaceEscape } from '@openliri/infra/utils/toolContract/pathBoundary';
 
 import { RiskClass } from './types/RiskClass';
+import { requiresApprovalDespiteSandbox } from './commandPatterns';
+
+/** 入参里的命令原文（命令类风险用；非字符串 ⇒ 空串，交由危险判定按"非危险"处理） */
+function stringCommand(input: Record<string, unknown>): string {
+  const command = input['command'];
+  return typeof command === 'string' ? command : '';
+}
 
 /** 沙箱能力档位排序（`ToolSandboxLevel` 的覆盖关系） */
 const CAPABILITY_RANK: Record<ToolSandboxLevel, number> = {
@@ -52,6 +64,7 @@ export type SandboxExemptionDenialReason =
   | 'no-isolation'
   | 'risk-not-exemptable'
   | 'shell-unprovable'
+  | 'dangerous-command'
   | 'file-io-not-isolated'
   | 'capability-undeclared'
   | 'capability-insufficient'
@@ -126,13 +139,37 @@ const deny = (
 export function resolveSandboxExemption(
   params: SandboxExemptionInput
 ): SandboxExemptionResult {
-  // S1：隔离可证（缺失/`none` 都视为"未沙箱"）
+  // S1：隔离可证（缺失即"未沙箱"）
   const signal = params.signal;
   if (!signal) return deny('no-signal');
-  if (signal.mode === 'none') return deny('no-isolation');
 
-  // S4 前置：命令类无法证明网络/端口范围 ⇒ 不豁免（fail-closed）
-  if (params.risk === RiskClass.SHELL) return deny('shell-unprovable');
+  // 命令类（2026-11-26，用户裁定「沙箱内执行 ⇒ 免审批」）：判据换成**写隔离真的生效**
+  // （`shellWriteIsolated` —— Windows Low IL / macOS Seatbelt / Linux Landlock 的能力证据），
+  // 因为命令类没有"路径参数 + 工作区"这种可判形态（S4 不适用），而 `mode` 在 Windows/macOS 上
+  // 恒为 `none`（`mode` 只表达 Landlock 那条路）。
+  // ⚠️ 边界：写隔离**不覆盖读与网络** ⇒ 破坏性/提权/外发类命令仍保持人工审批。
+  if (params.risk === RiskClass.SHELL) {
+    if (signal.shellWriteIsolated !== true) return deny('shell-unprovable');
+    if (requiresApprovalDespiteSandbox(stringCommand(params.input))) {
+      return deny('dangerous-command');
+    }
+    const shellDeclared = params.sandboxLevel;
+    if (!shellDeclared || shellDeclared === 'none') {
+      return deny('capability-undeclared');
+    }
+    if (CAPABILITY_RANK[shellDeclared] < CAPABILITY_RANK['execution']) {
+      return deny('capability-insufficient');
+    }
+    if (
+      PERMISSION_RANK[signal.permissionLevel] <
+      PERMISSION_RANK[requiredPermission('execution')]
+    ) {
+      return deny('permission-insufficient');
+    }
+    return { exempt: true, reason: 'sandbox-isolated' };
+  }
+
+  if (signal.mode === 'none') return deny('no-isolation');
 
   const required = requiredCapability(params.risk);
   if (!required) return deny('risk-not-exemptable');

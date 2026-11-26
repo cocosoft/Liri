@@ -142,6 +142,17 @@ export interface SandboxExecutionSignal {
    * 未提供/未覆盖 ⇒ 不豁免（fail-closed）。
    */
   fileIoRoots?: string[];
+  /**
+   * 2026-11-26（用户裁定「沙箱内执行 ⇒ 免审批」）：**命令工具的写隔离是否真的生效**。
+   *
+   * 与 `mode` 的区别：`mode` 只表达"执行环境具备隔离能力"（Landlock / 容器 / 远端），
+   * 而 shell 工具在 Windows 上走 Low IL、在 macOS 上走 Seatbelt —— 两者都不体现在 `mode`。
+   *
+   * 事实来源：`@modules/sandbox` 的 `isShellWriteIsolationEffective()`（平台能力探测 + 总开关）。
+   * 为 `true` 时，审批层才可把 `RiskClass.SHELL` 的"风险默认 ask"降级为 allow；
+   * ⚠️ 它**不**覆盖读与网络（这两项不受写隔离约束）。
+   */
+  shellWriteIsolated?: boolean;
 }
 
 /**

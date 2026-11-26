@@ -247,6 +247,22 @@ export function isDangerousApprovalCommand(command: string): boolean {
 }
 
 /**
+ * 该命令是否**即使写隔离已生效也仍需人工确认**（2026-11-26，用户裁定「沙箱内执行 ⇒ 免审批」）。
+ *
+ * 判据 = 危险命令 **减去**「内联代码」形态（`python -c` / `node -e` / `bash -c` …）：
+ * - 内联代码的副作用就是"任意代码"，而写隔离正是约束它的手段（越界写被内核/低完整性拒绝）
+ *   ⇒ 属「沙箱已覆盖」，不再弹卡；
+ * - 其余危险命令（删除 / 提权 / 系统配置 / 包安装 …）的后果包含"删掉白名单内目录"这类
+ *   **写隔离明确允许**的操作 ⇒ 保持人工确认。
+ *
+ * ⚠️ 如实边界：写隔离只约束"写"，**读与网络不受限**；本判据不声称这两项已被隔离。
+ */
+export function requiresApprovalDespiteSandbox(command: string): boolean {
+  if (!isDangerousApprovalCommand(command)) return false;
+  return !hasInlineCodeFlag(command);
+}
+
+/**
  * 该命令是否属于「危险 **且** 会按前缀放大」的命令（2026-11-25）。
  *
  * 解释器/壳内建即使命中危险词表（如 `node -e`），生成的规则是**精确匹配**、不会放大

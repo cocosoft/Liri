@@ -144,6 +144,62 @@ describe('KnowledgeCompiler.needsRecompile：页面列表走快照缓存（K7）
   });
 });
 
+describe('KnowledgeCompiler.needsRecompile：多页面并发判定（K10）', () => {
+  /** 一条 raw → 两个页面（many-to-many 的典型形态） */
+  function makeMultiPageFixture(): {
+    rawFile: string;
+    pages: string[];
+    rawStat: Stats;
+  } {
+    const knowledgeRoot = join(home, 'knowledge');
+    const rawDir = join(knowledgeRoot, 'raw');
+    mkdirSync(rawDir, { recursive: true });
+    mkdirSync(join(knowledgeRoot, 'entities'), { recursive: true });
+    const rawFile = join(rawDir, 'note.md');
+    const pages = [
+      join(knowledgeRoot, 'note.md'),
+      join(knowledgeRoot, 'entities', 'concept.md'),
+    ];
+    writeFileSync(rawFile, 'raw content');
+    for (const p of pages) writeFileSync(p, '# page');
+    const older = new Date(Date.now() - 60_000);
+    utimesSync(rawFile, older, older);
+    return { rawFile, pages, rawStat: statSync(rawFile) };
+  }
+
+  it('① 两个页面都存在且都比源新 ⇒ 不重编译', async () => {
+    const { rawFile, pages, rawStat } = makeMultiPageFixture();
+    const compiler = new KnowledgeCompiler({} as unknown as AIService);
+    const { needsRecompile } = compiler as unknown as CompilerInternals;
+
+    const verdict = await needsRecompile(rawFile, rawStat, pages);
+    expect(verdict).toEqual({ needsCompile: false, pages });
+  });
+
+  it('② 只有一个页面缺失（其余正常）⇒ 仍必须重编译', async () => {
+    const { rawFile, pages, rawStat } = makeMultiPageFixture();
+    rmSync(pages[1]);
+
+    const compiler = new KnowledgeCompiler({} as unknown as AIService);
+    const { needsRecompile } = compiler as unknown as CompilerInternals;
+
+    const verdict = await needsRecompile(rawFile, rawStat, pages);
+    expect(verdict).toEqual({ needsCompile: true, pages });
+  });
+
+  it('③ 只有一个页面比源旧 ⇒ 仍必须重编译', async () => {
+    const { rawFile, pages } = makeMultiPageFixture();
+    const olderThanRaw = new Date(Date.now() - 120_000);
+    utimesSync(pages[1], olderThanRaw, olderThanRaw);
+
+    const compiler = new KnowledgeCompiler({} as unknown as AIService);
+    const { needsRecompile } = compiler as unknown as CompilerInternals;
+
+    const verdict = await needsRecompile(rawFile, statSync(rawFile), pages);
+    expect(verdict.needsCompile).toBe(true);
+  });
+});
+
 describe('KnowledgeCompiler.processRawFileForCompile：跳过时回写页面列表（K7）', () => {
   it('旧快照缺 pages ⇒ 本轮从 .meta.json 补出并写入新快照，且计入跳过', async () => {
     const { rawFile, pageFile, rawStat } = makeFixture();

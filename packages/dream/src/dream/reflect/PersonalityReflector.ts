@@ -215,7 +215,9 @@ export class PersonalityReflector {
           ? registry.getByModel(model)
           : registry?.getDefaultProvider();
       if (!provider) {
-        logger.warn('人格分析：无可用 AI Provider，本轮跳过（不更新 SOUL/USER）');
+        logger.warn(
+          '人格分析：无可用 AI Provider，本轮跳过（不更新 SOUL/USER）'
+        );
         return '{}';
       }
 

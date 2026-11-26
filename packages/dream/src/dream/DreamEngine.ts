@@ -132,7 +132,9 @@ export class DreamEngine {
    * 执行完整梦境周期（五阶段管线）
    * 通过 UnifiedDreamCycle 统一编排 Gather → Analyze → Generate → Write → Index。
    */
-  private async executeDreamCycle(source: DreamTriggerSource): Promise<boolean> {
+  private async executeDreamCycle(
+    source: DreamTriggerSource
+  ): Promise<boolean> {
     // 阶段标签：整轮梦境是"周期后台任务"里最可能与阻塞共变的路径（§8.9）
     return withPhase('dream:executeDreamCycle', () =>
       this._executeDreamCycleImpl(source)

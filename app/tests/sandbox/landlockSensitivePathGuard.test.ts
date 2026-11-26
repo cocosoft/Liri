@@ -22,6 +22,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { homedir } from 'os';
 import {
   getUserDataDirOverride,
+  resolveAttachmentsDir,
   resolveDownloadsDir,
   resolveOutputDir,
   resolvePyappHome,
@@ -174,13 +175,16 @@ describe('Landlock 白名单：敏感路径守卫（P0-3-b）', () => {
       }
     });
 
-    it('`~/.pyapp` 下的**可写**规则仅限受管产物目录（output / downloads / temp）', () => {
-      // 只允许这三者（AI 产物落点）；若将来往 `~/.pyapp` 下开别的可写目录 ⇒ 本断言变红，
+    it('`~/.pyapp` 下的**可写**规则仅限受管产物目录（output / downloads / temp / attachments）', () => {
+      // 只允许这四者（AI 产物落点）；若将来往 `~/.pyapp` 下开别的可写目录 ⇒ 本断言变红，
       // 强制"新增家目录下可写目录"必须显式评审
       const allowed = new Set([
         resolveOutputDir(),
         resolveDownloadsDir(),
         resolveTempDir(),
+        // 2026-11-26（长程真机 session_mwvqkfeb928601d0c4）：PDF 提取结果写在 attachments，
+        // 不放行会让「非只读命令强制沙箱」把既有工作流拦成 Access denied
+        resolveAttachmentsDir(),
       ]);
       const writableUnderPyapp = bashPolicy.fs.filter(
         (rule) =>

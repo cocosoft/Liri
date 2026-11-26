@@ -13,7 +13,10 @@
  * ⚠️ 本机为 Windows ⇒ **真实 Linux 上的 enforce 行为未验证**；用例覆盖的是判据、形状与分支。
  */
 import { describe, expect, it } from 'bun:test';
-import { resolveOutputDir } from '@openliri/infra/environment';
+import {
+  resolveAttachmentsDir,
+  resolveOutputDir,
+} from '@openliri/infra/environment';
 import {
   buildBashLandlockPolicy,
   decideBashLandlockGate,
@@ -347,6 +350,8 @@ describe('G1-A: 策略形状（写权限最小化 + 网络显式放行）', () =
   it('工作区与受管目录可写', () => {
     expect(rule('/work/x')?.allow).toContain('write');
     expect(rule(resolveOutputDir())?.allow).toContain('write');
+    // 2026-11-26（长程真机）：附件目录也是受管落点（旧会话把 PDF 提取结果写在 attachments）
+    expect(rule(resolveAttachmentsDir())?.allow).toContain('write');
   });
 
   it('/dev 可写（`2>/dev/null` 等常规重定向）', () => {

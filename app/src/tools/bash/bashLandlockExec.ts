@@ -95,6 +95,7 @@ import type {
   WindowsSandboxCapability,
 } from '@modules/sandbox';
 import {
+  resolveAttachmentsDir,
   resolveDownloadsDir,
   resolveOutputDir,
   resolveTempDir,
@@ -219,6 +220,10 @@ export function buildBashLandlockPolicy(input: {
     { path: resolveOutputDir(), allow: FS_READ_WRITE },
     { path: resolveDownloadsDir(), allow: FS_READ_WRITE },
     { path: resolveTempDir(), allow: FS_READ_WRITE },
+    // 2026-11-26（长程真机）：附件目录同样是受管落点 —— 真机会话 `session_mwvqkfeb928601d0c4`
+    // 把 PDF 提取结果写到 `~/.pyapp/attachments/_agentic_full.txt`；不放进白名单会让
+    // 「非只读命令强制沙箱」把这类既有工作流拦成 Access denied。
+    { path: resolveAttachmentsDir(), allow: FS_READ_WRITE },
     // 临时区 + 常见工具缓存（bash 里跑 git/npm/bun 需要写缓存）
     { path: '/tmp', allow: FS_READ_WRITE },
     { path: '/var/tmp', allow: FS_READ_WRITE },
@@ -884,6 +889,8 @@ export async function execBashCommand(
     resolveOutputDir(),
     resolveDownloadsDir(),
     resolveTempDir(),
+    // 2026-11-26：附件与 output/downloads/temp 同为受管落点（见 `buildBashLandlockPolicy` 同项注释）
+    resolveAttachmentsDir(),
     // `/dev`：与 Linux landlock 策略**同口径**（见 `buildBashLandlockPolicy` 的 `/dev` 注释）——
     // `2>/dev/null`、`>&2` 是 shell 常规重定向；不放行会让几乎所有脚本在 macOS 侧莫名失败
     // （2026-10-26 首次 macOS CI 实证：`cat /etc/hosts > /dev/null` 报 Operation not permitted）。
@@ -935,6 +942,8 @@ export async function execBashCommand(
     resolveOutputDir(),
     resolveDownloadsDir(),
     resolveTempDir(),
+    // 2026-11-26：附件目录（与 Linux/macOS 策略同口径，见 `buildBashLandlockPolicy` 同项注释）
+    resolveAttachmentsDir(),
     // ⚠️ 2026-11-26（真机实测）：**刻意不**默认加入工具链缓存（`~/.bun` / `~/.npm` / `~/.cache`）。
     // Low IL 要求"执行前打标签、执行后恢复"，而这两个动作在大目录上都按整棵树走 ACL
     // （实测 `~/.bun` 单次 ≈ 9s ⇒ 每条非只读命令多付 ≈ 18s，`bun test` 的 5s 超时直接爆）。

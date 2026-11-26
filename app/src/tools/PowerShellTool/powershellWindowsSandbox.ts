@@ -19,6 +19,7 @@ import { exec } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { promisify } from 'node:util';
 import {
+  resolveAttachmentsDir,
   resolveDownloadsDir,
   resolveOutputDir,
   resolveTempDir,
@@ -187,6 +188,8 @@ export async function runPowerShellInWindowsSandbox(
         input.cwd,
         resolveOutputDir(),
         resolveDownloadsDir(),
+        // 2026-11-26：附件目录同为受管落点（与 bash 策略同口径）
+        resolveAttachmentsDir(),
         windowsTemp,
         ...config.extraWritablePaths,
       ],

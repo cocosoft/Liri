@@ -64,6 +64,7 @@ import {
   finishCompileProgress,
   abortCompileProgress,
 } from './CompileProgressTracker';
+import { DIGEST_REVERIFY_INTERVAL_MS } from './defaults';
 
 const logger = new OTelAwareLogger({
   module: 'knowledge:compiler',
@@ -75,6 +76,40 @@ const COMPILE_STATE_PATH = join(
   resolveDataSubDir(''),
   'knowledge-compile-state.json'
 );
+
+/** K9（2026-11-26）：mtime 未变时，内容摘要该怎么处理的判定结果 */
+export type DigestCheckVerdict =
+  /** 字节数变了 ⇒ 内容确实变了，直接重编译（**不读内容**） */
+  | 'size-changed'
+  /** 大小未变但复检周期到期 ⇒ 读内容算 sha1 确认 */
+  | 'reverify'
+  /** 大小未变且周期未到 ⇒ 本轮不读内容（原实现每轮都读） */
+  | 'defer';
+
+/**
+ * K9（2026-11-26）：决定「mtime 未变」的文件是否需要读内容做摘要复检。
+ *
+ * 纯函数（便于单测）。真机数据：16 个有 digest 的文件共 38.5 MB，原实现每轮重读
+ * 全文做 sha1 耗时 42.6 ms；若 digest 铺满 593 个文件将 ≈233 ms/轮（吞吐 1042 KB/ms）。
+ *
+ * - 旧快照没有 `size`（迁移期）⇒ `reverify`：读一次内容确认并补上 `size`；
+ * - `size` 变了 ⇒ `size-changed`：大小变即内容变，无需读取；
+ * - 大小未变且 `digestCheckedAt` 距今未满 `intervalMs` ⇒ `defer`；
+ * - 到期 ⇒ `reverify`。
+ */
+export function decideDigestCheck(args: {
+  prevSize?: number;
+  currentSize: number;
+  digestCheckedAt?: number;
+  now: number;
+  intervalMs?: number;
+}): DigestCheckVerdict {
+  if (args.prevSize === undefined) return 'reverify';
+  if (args.prevSize !== args.currentSize) return 'size-changed';
+  const interval = args.intervalMs ?? DIGEST_REVERIFY_INTERVAL_MS;
+  const last = args.digestCheckedAt ?? 0;
+  return args.now - last >= interval ? 'reverify' : 'defer';
+}
 
 /** 编译状态快照 */
 interface CompileState {
@@ -96,6 +131,18 @@ interface CompileState {
       compiledAt: number;
       /** 内容指纹（K5.1：sha1(raw 字节)，用于 mtime 未变时的内容变更检测） */
       digest?: string;
+      /**
+       * K9（2026-11-26）：编译时的 raw **字节数**。每次跳过时由已免费的 `stat`
+       * 写回，用于「内容变但 mtime 未变」的**免读取**判定（大小变 ⇒ 立即重编译）。
+       */
+      size?: number;
+      /**
+       * K9（2026-11-26）：上次**读取内容算 digest** 的时间。
+       *
+       * 原实现每轮对所有有 digest 的文件重读全文（真机 16 文件 38.5 MB ⇒ 42.6 ms/轮，
+       * 铺满 593 个将 ≈233 ms/轮）；现在只在 `DIGEST_REVERIFY_INTERVAL_MS` 到期后复检。
+       */
+      digestCheckedAt?: number;
       /**
        * K7（2026-11-26）：该 raw 编译产出的页面列表（与 companion `.meta.json`
        * 内容一致）。增量判定优先读这里 —— 每轮少读 591 个 `.meta.json` 文件。
@@ -483,12 +530,16 @@ export class KnowledgeCompiler {
       // 本轮已确认的页面列表（快照缺失时由 `.meta.json` 补出，回写快照供下轮复用）
       const knownPages = verdict.pages ?? prevState?.pages;
 
-      /** 跳过时把 mtime（及已确认的页面列表）落回新快照，避免下轮重复判定 */
-      const recordSkip = (): void => {
+      /** 跳过时把 mtime / 大小（及已确认的页面列表）落回新快照，避免下轮重复判定 */
+      const recordSkip = (digestCheckedAt?: number): void => {
+        // K9：只有「本轮真的读过内容」才刷新复检时间，否则沿用旧值
+        const checkedAt = digestCheckedAt ?? prevState?.digestCheckedAt;
         newState.docs[rawFile] = {
           mtime: rawStat.mtimeMs,
+          size: rawStat.size,
           compiledAt: prevState?.compiledAt ?? Date.now(),
           ...(prevState?.digest ? { digest: prevState.digest } : {}),
+          ...(checkedAt === undefined ? {} : { digestCheckedAt: checkedAt }),
           ...(knownPages ? { pages: knownPages } : {}),
         };
       };
@@ -498,19 +549,42 @@ export class KnowledgeCompiler {
       if (!force && !needsCompile) {
         if (prevState && prevState.mtime === rawStat.mtimeMs) {
           if (prevState.digest) {
-            const digest = await digestFor(rawFile);
-            if (digest === prevState.digest) {
-              // 指纹一致 → 内容未变，安全跳过
+            // K9：先用已免费的 stat.size 判，未变则按复检周期决定是否读内容
+            const now = Date.now();
+            const digestVerdict = decideDigestCheck({
+              prevSize: prevState.size,
+              currentSize: rawStat.size,
+              digestCheckedAt: prevState.digestCheckedAt,
+              now,
+            });
+            if (digestVerdict === 'size-changed') {
+              needsCompile = true;
+              logger.info('文件大小变化触发重编译（mtime 未变）', {
+                file: rawFile,
+                prevSize: prevState.size,
+                size: rawStat.size,
+              });
+            } else if (digestVerdict === 'defer') {
+              // 大小未变且复检未到期 ⇒ 不读内容（原实现此处每轮读全文做 sha1）
               result.skipped++;
               recordSkip();
               updateCompileProgress(result.compiled + result.skipped);
               return;
+            } else {
+              const digest = await digestFor(rawFile);
+              if (digest === prevState.digest) {
+                // 指纹一致 → 内容未变，安全跳过（并刷新复检时间）
+                result.skipped++;
+                recordSkip(now);
+                updateCompileProgress(result.compiled + result.skipped);
+                return;
+              }
+              // 指纹不同但 mtime 相同 → 内容被改写（如 touch 保留 mtime），强制编译
+              needsCompile = true;
+              logger.info('内容指纹变化触发重编译（mtime 未变）', {
+                file: rawFile,
+              });
             }
-            // 指纹不同但 mtime 相同 → 内容被改写（如 touch 保留 mtime），强制编译
-            needsCompile = true;
-            logger.info('内容指纹变化触发重编译（mtime 未变）', {
-              file: rawFile,
-            });
           } else {
             // 旧快照无 digest（迁移期）→ 维持原跳过行为，新编译后自动补指纹
             result.skipped++;
@@ -537,12 +611,14 @@ export class KnowledgeCompiler {
       // R4：实际产出页面的源 raw 记录（供原文分块页码索引刷新）
       if (pages.length > 0) result.compiledRaws.push(rawFile);
 
-      // 编译成功，记录到快照（含内容指纹 K5.1 / 页面列表 K7）
+      // 编译成功，记录到快照（含内容指纹 K5.1 / 大小与复检时间 K9 / 页面列表 K7）
       try {
         newState.docs[rawFile] = {
           mtime: rawStat.mtimeMs,
+          size: rawStat.size,
           compiledAt: Date.now(),
           digest: await digestFor(rawFile),
+          digestCheckedAt: Date.now(),
           ...(pages.length > 0 ? { pages } : {}),
         };
       } catch (_err) {

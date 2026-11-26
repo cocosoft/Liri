@@ -11,6 +11,10 @@
  *  ② 判定出的页面列表会回写新快照（`docs[raw].pages`）⇒ 下轮继续免读 `.meta.json`。
  *
  * 页面缺失仍必须触发重编译（自愈语义不变），同样在此锁定。
+ *
+ * K9（2026-11-26）追加：内容摘要（sha1）改为按需复检 —— 先用已免费的 `stat.size` 判，
+ * 大小未变则只在复检周期到期后读内容；真机 16 个有 digest 的文件共 38.5 MB（42.6 ms/轮），
+ * 铺满 593 个将 ≈233 ms/轮。本测试锁定三条：未到期不读、到期读一次、大小变直接重编译。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import {
@@ -26,7 +30,10 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { KnowledgeCompiler } from '../../src/knowledge/KnowledgeCompiler';
+import {
+  KnowledgeCompiler,
+  decideDigestCheck,
+} from '../../src/knowledge/KnowledgeCompiler';
 import type { AIService } from '@modules/ai';
 
 /** 被测私有方法的最小结构（只声明本测试用到的签名） */
@@ -37,12 +44,15 @@ interface CompilerInternals {
     cachedPages?: string[]
   ): Promise<{ needsCompile: boolean; pages?: string[] }>;
   processRawFileForCompile(rawFile: string, ctx: unknown): Promise<void>;
+  compileFile(rawFile: string, model?: string): Promise<string[]>;
 }
 
 interface DocEntry {
   mtime: number;
   compiledAt: number;
   digest?: string;
+  size?: number;
+  digestCheckedAt?: number;
   pages?: string[];
 }
 
@@ -176,5 +186,140 @@ describe('KnowledgeCompiler.processRawFileForCompile：跳过时回写页面列�
     expect(newState.docs[rawFile]?.pages).toEqual([pageFile]);
     // mtime 沿用本轮 stat 结果（原实现此处会再 stat 一次）
     expect(newState.docs[rawFile]?.mtime).toBe(rawStat.mtimeMs);
+  });
+});
+
+describe('decideDigestCheck — 内容摘要按需复检（K9）', () => {
+  const HOUR = 3600_000;
+
+  it('① 旧快照无 size（迁移期）⇒ reverify（读一次确认并补 size）', () => {
+    expect(
+      decideDigestCheck({ currentSize: 10, now: 1_000, intervalMs: HOUR })
+    ).toBe('reverify');
+  });
+
+  it('② 字节数变了 ⇒ size-changed（判定依据是 stat，不读内容）', () => {
+    expect(
+      decideDigestCheck({
+        prevSize: 10,
+        currentSize: 11,
+        digestCheckedAt: 1_000,
+        now: 1_000,
+        intervalMs: HOUR,
+      })
+    ).toBe('size-changed');
+  });
+
+  it('③ 大小未变且复检未到期 ⇒ defer（本轮不读内容）', () => {
+    expect(
+      decideDigestCheck({
+        prevSize: 10,
+        currentSize: 10,
+        digestCheckedAt: 1_000,
+        now: 1_000 + HOUR - 1,
+        intervalMs: HOUR,
+      })
+    ).toBe('defer');
+  });
+
+  it('④ 大小未变但复检到期 ⇒ reverify', () => {
+    expect(
+      decideDigestCheck({
+        prevSize: 10,
+        currentSize: 10,
+        digestCheckedAt: 1_000,
+        now: 1_000 + HOUR,
+        intervalMs: HOUR,
+      })
+    ).toBe('reverify');
+  });
+});
+
+describe('KnowledgeCompiler.processRawFileForCompile：摘要读取按需化（K9）', () => {
+  function makeResult() {
+    return {
+      compiled: 0,
+      skipped: 0,
+      errors: [] as string[],
+      totalFound: 1,
+      pagesCreated: 0,
+      compiledFiles: [] as string[],
+      compiledRaws: [] as string[],
+    };
+  }
+
+  async function run(
+    prevPatch: Partial<DocEntry>,
+    options: { digestImpl?: () => Promise<string> } = {}
+  ) {
+    const { rawFile, pageFile, rawStat } = makeFixture();
+    const prev: DocEntry = {
+      mtime: rawStat.mtimeMs,
+      compiledAt: 1,
+      digest: 'stored-digest',
+      size: rawStat.size,
+      pages: [pageFile],
+      ...prevPatch,
+    };
+    const newState = {
+      lastCompileAt: 0,
+      docs: {} as Record<string, DocEntry>,
+    };
+    const result = makeResult();
+    let digestCalls = 0;
+
+    const compiler = new KnowledgeCompiler({} as unknown as AIService);
+    const internals = compiler as unknown as CompilerInternals;
+    // 不触 AI：需要走编译分支时用桩
+    internals.compileFile = async () => [];
+
+    await internals.processRawFileForCompile.call(compiler, rawFile, {
+      force: false,
+      resolvedModel: 'stub-model',
+      compileState: { lastCompileAt: 0, docs: { [rawFile]: prev } },
+      newState,
+      digestFor: async () => {
+        digestCalls++;
+        return options.digestImpl ? options.digestImpl() : 'stored-digest';
+      },
+      result,
+    });
+
+    return { result, newState, rawFile, digestCalls, rawStat };
+  }
+
+  it('① 复检未到期 ⇒ 不读内容（digestFor 0 次调用），沿用旧的复检时间', async () => {
+    const checkedAt = Date.now();
+    const { result, newState, rawFile, digestCalls, rawStat } = await run({
+      digestCheckedAt: checkedAt,
+    });
+
+    expect(digestCalls).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(result.compiled).toBe(0);
+    expect(newState.docs[rawFile]?.digestCheckedAt).toBe(checkedAt);
+    expect(newState.docs[rawFile]?.size).toBe(rawStat.size);
+  });
+
+  it('② 复检到期且指纹一致 ⇒ 读一次内容并刷新复检时间', async () => {
+    const { result, newState, rawFile, digestCalls } = await run({
+      digestCheckedAt: 1, // 早已到期
+    });
+
+    expect(digestCalls).toBe(1);
+    expect(result.skipped).toBe(1);
+    expect(newState.docs[rawFile]?.digestCheckedAt).toBeGreaterThan(1);
+  });
+
+  it('③ 大小变化 ⇒ 直接重编译（判定不读摘要；仅编译成功后补指纹时读一次）', async () => {
+    const { result, digestCalls } = await run({
+      size: 1, // 与真实大小不符
+      digestCheckedAt: Date.now(),
+    });
+
+    expect(result.compiled).toBe(1);
+    expect(result.skipped).toBe(0);
+    // 1 次 = 编译成功写快照时算新指纹；判定阶段（mtime 相同）没有读内容
+    expect(digestCalls).toBe(1);
   });
 });

@@ -59,6 +59,7 @@ function source(
       mode: 'none',
       permissionLevel: 'standard',
       bashSandboxReason: 'switch-off',
+      shellWriteIsolated: false,
       landlock: {
         enabled: false,
         bashEnabled: false,

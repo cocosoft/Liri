@@ -21,6 +21,8 @@ describe('describeSandboxPosture（#7 沙箱姿态可读化）', () => {
       permissionLevel: 'standard',
       // P2（2026-11-07）：姿态现在区分平台；本用例固定 linux 以断言"开关未开"分支
       platform: 'linux',
+      // 2026-11-26：本机写隔离未生效（显式注入，避免依赖真实平台能力探测）
+      shellWriteIsolated: false,
       landlock: {
         enabled: true,
         bashEnabled: false,
@@ -39,19 +41,22 @@ describe('describeSandboxPosture（#7 沙箱姿态可读化）', () => {
     expect(posture.openRisks).toHaveLength(3);
     expect(posture.openRisks.join('\n')).toContain('mode=none');
     expect(posture.openRisks.join('\n')).toContain('failClosed=false');
-    expect(posture.openRisks.join('\n')).toContain('bashEnabled=false');
+    // 2026-11-26：第三条的含义换成"非只读命令的写隔离没生效 ⇒ 降级普通执行"
+    expect(posture.openRisks.join('\n')).toContain('写隔离未生效');
     // A5-①：语言中立编码与 openRisks 一一对应（前端按编码取 i18n 文案）
     expect(posture.openRiskCodes).toEqual([
       'mode-none',
       'landlock-fail-open',
       'landlock-bash-disabled',
     ]);
+    expect(posture.shellWriteIsolated).toBe(false);
   });
 
   test('landlock 生效 + failClosed=true + bashEnabled=true ⇒ 零风险（不刷警告）', () => {
     const posture = describeSandboxPosture({
       mode: 'landlock',
       permissionLevel: 'standard',
+      shellWriteIsolated: true,
       landlock: {
         enabled: true,
         bashEnabled: true,
@@ -67,6 +72,7 @@ describe('describeSandboxPosture（#7 沙箱姿态可读化）', () => {
   test('只有 failClosed=false ⇒ 只报一条（不牵连其他项）', () => {
     const posture = describeSandboxPosture({
       mode: 'landlock',
+      shellWriteIsolated: true,
       landlock: {
         enabled: true,
         bashEnabled: true,
@@ -96,16 +102,19 @@ describe('describeSandboxPosture（#7 沙箱姿态可读化）', () => {
     expect(typeof posture.landlock.bashEnabled).toBe('boolean');
     expect(typeof posture.landlock.failClosed).toBe('boolean');
     expect(typeof posture.landlock.available).toBe('boolean');
+    expect(typeof posture.shellWriteIsolated).toBe('boolean');
     expect(Array.isArray(posture.openRisks)).toBe(true);
     expect(posture.openRiskCodes).toHaveLength(posture.openRisks.length);
     // 可 JSON 序列化（启动日志会原样落盘）
     expect(() => JSON.stringify(posture)).not.toThrow();
   });
 
-  test('Windows + bashEnabled=false ⇒ 标注"默认不隔离、可显式开启"（不是平台做不到）', () => {
+  // 2026-11-26（用户裁定「非只读命令强制沙箱」）：姿态改报"写隔离是否真的生效"
+  test('Windows + bashEnabled=false + 写隔离已生效 ⇒ 不报风险（非只读命令仍被隔离）', () => {
     const posture = describeSandboxPosture({
       mode: 'none',
       platform: 'win32',
+      shellWriteIsolated: true,
       landlock: {
         enabled: true,
         bashEnabled: false,
@@ -115,16 +124,34 @@ describe('describeSandboxPosture（#7 沙箱姿态可读化）', () => {
     });
 
     expect(posture.bashSandboxReason).toBe('windows-switch-off');
-    expect(posture.openRiskCodes).toContain('bash-sandbox-windows-opt-in');
-    // 不能同时报"开关没开"（Windows 有专门文案，需要说明"开了也会临时改标签"）
+    expect(posture.shellWriteIsolated).toBe(true);
     expect(posture.openRiskCodes).not.toContain('landlock-bash-disabled');
-    expect(posture.openRisks.join('\n')).toContain('完整性标签');
+    expect(posture.openRisks.join('\n')).not.toContain('写隔离未生效');
   });
 
-  test('Windows 但 bashEnabled=true ⇒ windows-enforced（已隔离）', () => {
+  test('写隔离未生效（能力未就绪 / 总开关关闭）⇒ 如实报"降级普通执行"', () => {
     const posture = describeSandboxPosture({
       mode: 'none',
       platform: 'win32',
+      shellWriteIsolated: false,
+      landlock: {
+        enabled: true,
+        bashEnabled: false,
+        failClosed: true,
+        available: false,
+      },
+    });
+
+    expect(posture.shellWriteIsolated).toBe(false);
+    expect(posture.openRiskCodes).toContain('landlock-bash-disabled');
+    expect(posture.openRisks.join('\n')).toContain('写隔离未生效');
+  });
+
+  test('Windows 且 bashEnabled=true ⇒ bashSandboxReason=windows-enforced（开关口径保留）', () => {
+    const posture = describeSandboxPosture({
+      mode: 'none',
+      platform: 'win32',
+      shellWriteIsolated: true,
       landlock: {
         enabled: true,
         bashEnabled: true,
@@ -133,6 +160,5 @@ describe('describeSandboxPosture（#7 沙箱姿态可读化）', () => {
       },
     });
     expect(posture.bashSandboxReason).toBe('windows-enforced');
-    expect(posture.openRiskCodes).not.toContain('bash-sandbox-windows-opt-in');
   });
 });

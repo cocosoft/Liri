@@ -111,13 +111,11 @@ function SandboxPage() {
         posture.landlock.failClosed
           ? t("sandbox.postureFailClosed")
           : t("sandbox.postureFailOpen"),
-        posture.landlock.bashEnabled
-          ? posture.bashSandboxReason === "windows-enforced"
-            ? t("sandbox.postureBashInWindows")
-            : t("sandbox.postureBashIn")
-          : posture.bashSandboxReason === "windows-switch-off"
-            ? t("sandbox.postureBashWindowsOptIn")
-            : t("sandbox.postureBashOut"),
+        // 2026-11-26（用户裁定「非只读命令强制沙箱」）：这条口径由后端 `shellWriteIsolated`
+        // 决定（平台能力 + 总开关），不再看 `landlock.bashEnabled` —— 后者从今只影响只读命令。
+        posture.shellWriteIsolated
+          ? t("sandbox.postureBashRequiredOnly")
+          : t("sandbox.postureBashUnavailable"),
         posture.bashInterpreterGuard
           ? t("sandbox.postureGuardOn")
           : t("sandbox.postureGuardOff"),

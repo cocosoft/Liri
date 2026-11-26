@@ -162,15 +162,12 @@ const enWorkspace = {
       "When the sandbox fails to initialise or lacks capability: falls back to unconstrained execution (fail-open, by design)",
     postureFailClosed:
       "When the sandbox fails to initialise or lacks capability: execution is refused (fail-closed)",
-    postureBashIn: "bash tool: runs inside the sandbox",
-    postureBashOut:
-      "bash tool: runs outside the sandbox (landlock.bashEnabled=false)",
-    // 2026-11-07 (§10 + §10.5): Windows isolates command writes by temporarily lowering the integrity label;
-    // the same switch covers bash and powershell (powershell used to spawn pwsh directly, bypassing bash's write isolation)
-    postureBashInWindows:
-      "Command execution (bash / powershell): runs in the Windows Low IL sandbox (each run temporarily lowers the integrity label of writable folders, then restores it; reads and network stay unrestricted)",
-    postureBashWindowsOptIn:
-      "Command execution (bash / powershell): runs outside the sandbox — Windows does not isolate by default; enabling landlock.bashEnabled runs it under Low IL (the integrity label of writable folders is lowered for the duration and restored afterwards; reads and network stay unrestricted)",
+    // 2026-11-26 (user decision): wording now follows "is write isolation actually effective",
+    // no longer landlock.bashEnabled (that switch now only affects read-only commands).
+    postureBashRequiredOnly:
+      "Command execution (bash / powershell): every non-read-only command runs inside the platform write sandbox (out-of-bound writes are denied; Windows = Low IL, macOS = Seatbelt, Linux = Landlock); when it is effective no approval card is shown, while delete/elevate commands still require confirmation; reads and network stay unrestricted",
+    postureBashUnavailable:
+      "Command execution (bash / powershell): write isolation is not effective on this machine (platform capability unavailable or the sandbox master switch is off) ⇒ non-read-only commands fall back to plain execution and keep the approval card",
     postureGuardOn: "Interpreter confirmation (BASH_INTERPRETER_GUARD): on",
     postureGuardOff: "Interpreter confirmation (BASH_INTERPRETER_GUARD): off",
     // P2-c (2026-11-07): permission tier vs sandbox — "ask or not" vs "what it may touch"

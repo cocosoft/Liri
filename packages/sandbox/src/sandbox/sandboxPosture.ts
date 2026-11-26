@@ -20,6 +20,7 @@ import type {
 import { readLandlockConfig } from './landlock/config';
 import { LandlockDetector } from './landlock/LandlockDetector';
 import { resolveSandboxExecutionSignal } from './sandboxExecutionSignal';
+import { isShellWriteIsolationEffective } from './shellWriteIsolation';
 
 /**
  * fail-open 风险的**语言中立编码**（A5-①，2026-11-05）。
@@ -30,9 +31,8 @@ import { resolveSandboxExecutionSignal } from './sandboxExecutionSignal';
 export type SandboxRiskCode =
   | 'mode-none'
   | 'landlock-fail-open'
-  | 'landlock-bash-disabled'
-  // 2026-11-07（方案 §10）：Windows 上 bash 默认不隔离（打开开关后会临时降级目录完整性标签）
-  | 'bash-sandbox-windows-opt-in';
+  // 2026-11-26：非只读命令本应强制写隔离，但本机能力未就绪 / 总开关关闭 ⇒ 降级普通执行
+  | 'landlock-bash-disabled';
 
 /**
  * bash 是否受 OS 级隔离，以及原因（语言中立；前端按此取文案）
@@ -65,6 +65,14 @@ export interface SandboxPosture {
     /** 能力探测是否已证实可用（未探测完 ⇒ `false`） */
     available: boolean;
   };
+  /**
+   * 2026-11-26（用户裁定）：**命令工具的写隔离是否真的生效**。
+   *
+   * `true` = 非只读命令会被强制在平台写隔离内执行（Windows Low IL / macOS Seatbelt /
+   * Linux Landlock），且满足条件时不再弹审批卡；`false` = 能力未就绪或总开关关闭 ⇒
+   * 非只读命令降级普通执行（保留审批卡）。
+   */
+  shellWriteIsolated: boolean;
   /** 当前姿态下**实际存在**的 fail-open 风险（人类可读；空数组 = 无） */
   openRisks: string[];
   /** 同上的语言中立编码（前端 i18n 用；与 `openRisks` 一一对应） */
@@ -77,6 +85,8 @@ export interface DescribeSandboxPostureOverrides {
   landlock?: Partial<SandboxPosture['landlock']>;
   /** 仅供单测注入（默认 `process.platform`） */
   platform?: NodeJS.Platform;
+  /** 仅供单测注入（缺省读 `isShellWriteIsolationEffective()`） */
+  shellWriteIsolated?: boolean;
 }
 
 /**
@@ -111,6 +121,10 @@ export function describeSandboxPosture(
       ? 'windows-switch-off'
       : 'switch-off';
 
+  const shellWriteIsolated =
+    overrides.shellWriteIsolated ??
+    isShellWriteIsolationEffective({ platform });
+
   const openRisks: string[] = [];
   const openRiskCodes: SandboxRiskCode[] = [];
   if (mode === 'none') {
@@ -123,17 +137,11 @@ export function describeSandboxPosture(
     );
     openRiskCodes.push('landlock-fail-open');
   }
-  if (bashSandboxReason === 'windows-switch-off') {
-    // 2026-11-07（方案 §10）：Windows 已能做 bash **写**隔离，但属显式选择（默认关）。
-    // 2026-11-26（用户裁定）：非只读命令不再受该开关约束，一律走 Low IL ⇒ 文案据实更正
-    //（旧文案"bash 默认不隔离"已不成立；只读命令不写盘，无需写隔离）。
+  if (!shellWriteIsolated) {
+    // 2026-11-26（用户裁定）：非只读命令**本应**强制进写隔离；此处报的是"没做到"的真实原因
+    //（能力未就绪 / 总开关关闭 ⇒ 降级普通执行，仍保留审批卡）。
     openRisks.push(
-      'Windows 上 bash 的 Low IL 隔离覆盖**非只读命令**：执行期间临时把可写目录的完整性标签降为 Low，执行后恢复（只读命令直接执行；读与网络仍不受限）'
-    );
-    openRiskCodes.push('bash-sandbox-windows-opt-in');
-  } else if (!landlock.bashEnabled) {
-    openRisks.push(
-      'landlock.bashEnabled=false：只读命令不隔离；非只读命令在平台能力可用时仍强制进沙箱，不可用时降级普通执行（保留审批）'
+      '命令执行（bash / powershell）：本机写隔离未生效（平台能力未就绪或沙箱总开关关闭）⇒ 非只读命令降级普通执行，并保留审批卡'
     );
     openRiskCodes.push('landlock-bash-disabled');
   }
@@ -143,6 +151,7 @@ export function describeSandboxPosture(
     permissionLevel,
     bashSandboxReason,
     landlock,
+    shellWriteIsolated,
     openRisks,
     openRiskCodes,
   };

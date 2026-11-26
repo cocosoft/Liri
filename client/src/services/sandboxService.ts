@@ -44,6 +44,10 @@ export interface SandboxStatus {
       failClosed: boolean;
       available: boolean;
     };
+    /**
+     * 2026-11-26：命令工具的写隔离是否真的生效（非只读命令强制进沙箱；生效时不再弹审批卡）。
+     */
+    shellWriteIsolated?: boolean;
     openRiskCodes: string[];
     bashInterpreterGuard?: boolean;
   } | null;

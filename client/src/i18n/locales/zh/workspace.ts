@@ -154,14 +154,12 @@ const zhWorkspace = {
     postureFailOpen:
       "沙箱初始化失败或能力缺失时：回退到无约束执行（fail-open，既定决策）",
     postureFailClosed: "沙箱初始化失败或能力缺失时：拒绝执行（fail-closed）",
-    postureBashIn: "bash 工具：在沙箱内执行",
-    postureBashOut: "bash 工具：不在沙箱内执行（landlock.bashEnabled=false）",
-    // 2026-11-07（方案 §10 + §10.5）：Windows 已能通过"临时降级完整性标签"实现命令执行写隔离；
-    // 同一开关同时覆盖 bash 与 powershell（powershell 原先直起 pwsh ⇒ 会绕过 bash 的写隔离）
-    postureBashInWindows:
-      "命令执行（bash / powershell）：在 Windows Low IL 沙箱内执行 —— 每次执行前临时把可写目录的完整性标签降为 Low，执行后恢复；读与网络仍不受限",
-    postureBashWindowsOptIn:
-      "命令执行（bash / powershell）：不在沙箱内执行 —— Windows 上默认不隔离；打开 landlock.bashEnabled 后会以 Low IL 执行（每次执行期间临时降低可写目录的完整性标签、执行后恢复；读与网络仍不受限）",
+    // 2026-11-26（用户裁定「非只读命令强制沙箱 / 沙箱内执行 ⇒ 免审批」）：口径改为
+    // 「写隔离是否真的生效」，不再按 landlock.bashEnabled 表述（该开关现只影响只读命令）。
+    postureBashRequiredOnly:
+      "命令执行（bash / powershell）：非只读命令强制在平台写隔离内执行（越界写被拒绝；Windows = Low IL，macOS = Seatbelt，Linux = Landlock）；写隔离生效时不再弹审批卡，删除/提权类命令仍需确认；读与网络不受限",
+    postureBashUnavailable:
+      "命令执行（bash / powershell）：本机写隔离未生效（平台能力未就绪或沙箱总开关关闭）⇒ 非只读命令降级为普通执行，并保留审批卡",
     postureGuardOn: "解释器命令二次确认（BASH_INTERPRETER_GUARD）：已开启",
     postureGuardOff: "解释器命令二次确认（BASH_INTERPRETER_GUARD）：未开启",
     // P2-c（2026-11-07）：权限档 ≠ 沙箱 —— 前者管「要不要问」，后者管「跑起来能碰什么」

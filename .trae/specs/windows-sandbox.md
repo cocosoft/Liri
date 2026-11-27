@@ -241,5 +241,14 @@ SG-1 把 REPL / notebook 执行面接进 Low IL 后，真机冒烟暴露并修�
 包装文件内 `"--fmt=%%s" "--p=%%%%x"` ⇒ 目标批处理 `%*` 得到 `"--fmt=%s" "--p=%%x"`；
 再经 `cmd /d /s /c call "<wrapper>"`（wrapper 路径**含空格**）且参数为 `%PATH%` / `100%`
 ⇒ `"--p=%PATH%" "--q=100%"`，`exit=0`（字面保真，环境变量未被展开）。
+**Low IL 全链冒烟**：同机 `planReplSandboxSpawn`（真实 helper + 真实授权）→
+`probe.cmd` 收到 `["--fmt=%s" "--p=%PATH%" "a b"]`、`exit=0`；`release` 后 5 个目录全部
+`windows-revoke … restoreLevel=Medium`，包装 `.bat` 已删除。
+
+**输出解码的混合流修复（2026-11-27，真机 `session_mwytcrw33b26a4d246`）**：`git log … | more`
+在无控制台子进程里会把个别 UTF-8 尾字节改写成 `?`（`e4bba4e79a84` ⇒ `e4bba4e79a3f`，不可恢复）；
+旧 `decodeWindowsConsoleOutput` 是「严格 UTF-8 失败 ⇒ **整段**按 GBK」，一个坏字节就把全篇合法中文
+翻成乱码（`登记` ⇒ `鐧昏`）。现改为**逐行**判定（合法行保持 UTF-8，仅失败行按 OEM 解码；
+纯 GBK 输出行为不变）。同批在系统提示词里禁用 `more` 分页（改用 `-n` / `Select-Object -First`）。
 
 `verify-win-sandbox.ts` 的失败分支现已内置**只读诊断**（读上述注册表键与策略目录），把"为什么不可用"直接打在输出里。

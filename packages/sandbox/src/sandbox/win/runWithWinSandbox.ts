@@ -95,15 +95,18 @@ export function classifyWinSandboxExit(exitCode: number | null): {
 }
 
 /**
- * 解码 helper 子进程输出（2026-11-07 真机发现）。
+ * 解码 helper 子进程输出（2026-11-07 真机发现；2026-11-27 修「混合流整段翻转」）。
  *
  * helper 以 `windowsHide: true`（= `CREATE_NO_WINDOW`）拉起 ⇒ 子进程**没有控制台**，
  * `cmd.exe` 内置命令（`ver` / `dir` / `type` …）按系统 OEM 码页输出（中文 Windows 为
  * GBK/cp936），而 `Buffer.toString()` 按 UTF-8 解码 ⇒ 中文变「锟斤拷」。
  *
- * 判据：先用**严格** UTF-8 解码；非法字节序列再按当前区域语言选 OEM 编码。
- * 纯 ASCII 在两种编码下一致 ⇒ 不会误伤。分块到达的半个多字节字符也因此不会乱：
- * 调用方**攒整段 Buffer** 后一次性解码（见下方 stdout/stderr 收集）。
+ * **混合流**（真机 `session_mwytcrw33b26a4d246`：`git log … | more`）：`more` 在处理管道时
+ * 会把个别 UTF-8 尾字节改写成 `?`（`e4bba4e79a84` ⇒ `e4bba4e79a3f`，字节不可恢复）⇒
+ * 整段里既有合法 UTF-8、又有零星非法字节。旧实现「严格 UTF-8 失败 ⇒ **整段**按 OEM 解码」
+ * 会把同段里的合法中文一起翻成乱码（`登记` ⇒ `鐧昏`）。
+ * 现按**行**判定：合法 UTF-8 的行保持 UTF-8，仅失败的行按 OEM 解码
+ * （`0x0A` 在 UTF-8 与 GBK 里都不出现在多字节序列内部 ⇒ 按字节切行是安全的）。
  *
  * @param locale 区域标识（默认取运行时；参数化是为了让用例与 CI 机器语言无关）
  */
@@ -111,23 +114,58 @@ export function decodeWindowsConsoleOutput(
   buf: Buffer,
   locale: string = Intl.DateTimeFormat().resolvedOptions().locale
 ): string {
+  if (buf.length === 0) return '';
+  const utf8 = new TextDecoder('utf-8', { fatal: true });
   try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(buf);
+    return utf8.decode(buf);
   } catch {
-    // @ignore-catch — 非 UTF-8 是 Windows 无控制台子进程的常态，按 OEM 码页再试
-    const fallback = locale.startsWith('zh')
-      ? 'gbk'
-      : locale.startsWith('ja')
-        ? 'shift_jis'
-        : locale.startsWith('ko')
-          ? 'euc-kr'
-          : 'windows-1252';
-    try {
-      return new TextDecoder(fallback).decode(buf);
-    } catch {
-      // @ignore-catch — 运行时不支持该编码（无 ICU）⇒ 退回宽松 UTF-8，至少不抛错
-      return buf.toString('utf8');
-    }
+    // @ignore-catch — 非 UTF-8 是 Windows 无控制台子进程的常态，逐行按 OEM 码页再试
+    return decodeLineByLine(buf, locale);
+  }
+}
+
+/** 无控制台子进程的 OEM 码页候选（按区域；运行时不支持该编码时返回 `null`） */
+function oemDecoderFor(locale: string): TextDecoder | null {
+  const encoding = locale.startsWith('zh')
+    ? 'gbk'
+    : locale.startsWith('ja')
+      ? 'shift_jis'
+      : locale.startsWith('ko')
+        ? 'euc-kr'
+        : 'windows-1252';
+  try {
+    return new TextDecoder(encoding);
+  } catch {
+    // @ignore-catch — 无 ICU 的运行时不支持该编码 ⇒ 交给调用方退回宽松 UTF-8
+    return null;
+  }
+}
+
+/** 逐行解码：每行独立判定 UTF-8 / OEM（坏行不污染其它行） */
+function decodeLineByLine(buf: Buffer, locale: string): string {
+  const oem = oemDecoderFor(locale);
+  const utf8 = new TextDecoder('utf-8', { fatal: true });
+  let out = '';
+  let start = 0;
+  for (let i = 0; i < buf.length; i += 1) {
+    if (buf[i] !== 0x0a) continue;
+    out += decodeLine(buf.subarray(start, i + 1), utf8, oem);
+    start = i + 1;
+  }
+  if (start < buf.length) out += decodeLine(buf.subarray(start), utf8, oem);
+  return out;
+}
+
+function decodeLine(
+  line: Buffer,
+  utf8: TextDecoder,
+  oem: TextDecoder | null
+): string {
+  try {
+    return utf8.decode(line);
+  } catch {
+    // @ignore-catch — 该行不是合法 UTF-8 ⇒ 按 OEM 码页解码（无 OEM 解码器时保留宽松 UTF-8）
+    return oem ? oem.decode(line) : line.toString('utf8');
   }
 }
 

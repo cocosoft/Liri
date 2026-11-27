@@ -264,6 +264,25 @@ describe('decodeWindowsConsoleOutput', () => {
     expect(decodeWindowsConsoleOutput(latin1, 'fr-FR')).toBe('été');
   });
 
+  it('混合流：个别坏字节不再把整段翻成乱码（真机 `git log … | more`）', () => {
+    // 真机取证（session_mwytcrw33b26a4d246）：`more` 把「记」的尾字节 e8aeb0 改成 e8ae3f
+    // ⇒ 整段不再合法；旧实现整段按 GBK 解码 ⇒ 前面两行的合法中文也变 `鐧昏`。
+    const good = Buffer.from(
+      'docs(sandbox): 登记 SG-7\nfix: 命令的 `$` 不再硬拒\n'
+    );
+    const broken = Buffer.from('docs: 登记\n');
+    broken[broken.length - 4] = 0x3f; // 模拟 more 的字节改写
+    const out = decodeWindowsConsoleOutput(
+      Buffer.concat([good, broken]),
+      'zh-CN'
+    );
+    // 合法行逐字保留（坏行只影响它自己）
+    expect(
+      out.startsWith('docs(sandbox): 登记 SG-7\nfix: 命令的 `$` 不再硬拒\n')
+    ).toBe(true);
+    expect(out).toContain('docs: ');
+  });
+
   it('空输出 ⇒ 空串（不抛错）', () => {
     expect(decodeWindowsConsoleOutput(Buffer.alloc(0))).toBe('');
   });

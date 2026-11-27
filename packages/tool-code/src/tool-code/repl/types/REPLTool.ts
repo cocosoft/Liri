@@ -4,6 +4,7 @@
 
 import type { ChildProcess } from 'child_process';
 import type { Writable, Readable } from 'stream';
+import type { ReplSandboxPlanMode } from '../replSandboxSpawn.js';
 
 /**
  * REPL选项
@@ -168,6 +169,19 @@ export interface REPLSession {
    * 标准错误
    */
   stderr?: Readable;
+
+  /**
+   * SG-1（2026-11-27）：本次会话的平台写隔离状态。
+   *
+   * `mode='none'` = **没有**隔离（能力不可用 / 总开关关闭 ⇒ 已降级并告警）；
+   * Windows Low IL 需要会话级“临时降完整性标签”，故 `release` 必须在
+   * `stopREPL` / 子进程退出时调用（幂等）。
+   */
+  sandbox?: {
+    /** `refuse` 不会落到会话上（启动即抛错） */
+    mode: Exclude<ReplSandboxPlanMode, 'refuse'>;
+    release?: () => Promise<void>;
+  };
 }
 
 /**

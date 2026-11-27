@@ -253,6 +253,38 @@ export function buildBashLandlockPolicy(input: {
   };
 }
 
+/**
+ * 「命令执行类工具写隔离」的**受管可写目录清单**（2026-11-27 抽取，单一事实源）。
+ *
+ * 消费者（此处不复制第二份清单，CS01）：
+ *  - bash 的 macOS Seatbelt 白名单（`includeDev: true`）；
+ *  - bash 的 Windows Low IL 授权目录；
+ *  - REPL / notebook 执行面的沙箱包裹（`packages/tool-code/.../replSandboxSpawn.ts`）。
+ *
+ * Linux 侧的同一组目录由 `buildBashLandlockPolicy` 逐条写入 landlock 规则。
+ */
+export function buildShellManagedWritableDirs(input: {
+  cwd?: string;
+  extraWritablePaths?: string[];
+  /**
+   * macOS：额外放行 `/dev`（`2>/dev/null`、`>&2` 等 shell 常规重定向）——
+   * 与 landlock 策略的 `/dev` 规则**同口径**；不放行会让脚本莫名 `Operation not permitted`。
+   */
+  includeDev?: boolean;
+}): string[] {
+  const dirs = [
+    input.cwd ?? process.cwd(),
+    resolveOutputDir(),
+    resolveDownloadsDir(),
+    resolveTempDir(),
+    // 2026-11-26：附件目录与 output/downloads/temp 同为受管落点（见 `buildBashLandlockPolicy` 同项注释）
+    resolveAttachmentsDir(),
+  ];
+  if (input.includeDev) dirs.push('/dev');
+  dirs.push(...(input.extraWritablePaths ?? []));
+  return dirs;
+}
+
 /** 门控判定结果（`refuse` 时 `message` 必填，供用户可操作地排障） */
 export interface BashLandlockGate {
   mode: 'plain' | 'landlock' | 'sandbox-exec' | 'windows-low-il' | 'refuse';
@@ -925,20 +957,16 @@ export async function execBashCommand(
     );
   }
 
-  /** 2026-10-26：macOS 写入白名单（工作区 + 受管产物 + 临时目录 + 用户显式追加） */
-  const macWritablePaths = (): string[] => [
-    input.cwd ?? process.cwd(),
-    resolveOutputDir(),
-    resolveDownloadsDir(),
-    resolveTempDir(),
-    // 2026-11-26：附件与 output/downloads/temp 同为受管落点（见 `buildBashLandlockPolicy` 同项注释）
-    resolveAttachmentsDir(),
-    // `/dev`：与 Linux landlock 策略**同口径**（见 `buildBashLandlockPolicy` 的 `/dev` 注释）——
-    // `2>/dev/null`、`>&2` 是 shell 常规重定向；不放行会让几乎所有脚本在 macOS 侧莫名失败
-    // （2026-10-26 首次 macOS CI 实证：`cat /etc/hosts > /dev/null` 报 Operation not permitted）。
-    '/dev',
-    ...config.bashExtraWritablePaths,
-  ];
+  /**
+   * 2026-10-26：macOS 写入白名单（工作区 + 受管产物 + 临时目录 + 用户显式追加）。
+   * 2026-11-27：清单收敛到 `buildShellManagedWritableDirs`（REPL 执行面共用同一份）。
+   */
+  const macWritablePaths = (): string[] =>
+    buildShellManagedWritableDirs({
+      ...(input.cwd ? { cwd: input.cwd } : {}),
+      extraWritablePaths: config.bashExtraWritablePaths,
+      includeDev: true,
+    });
 
   const runLandlockBash = async () => {
     const helperPath = deps.helperPath ?? resolveLandlockHelperPath();
@@ -978,21 +1006,20 @@ export async function execBashCommand(
       ...(input.signal ? { signal: input.signal } : {}),
     });
 
-  /** 2026-11-07：Windows Low IL 下**允许写**的目录（其余写操作由 MIC 拒绝） */
-  const windowsWritableDirs = (): string[] => [
-    input.cwd ?? process.cwd(),
-    resolveOutputDir(),
-    resolveDownloadsDir(),
-    resolveTempDir(),
-    // 2026-11-26：附件目录（与 Linux/macOS 策略同口径，见 `buildBashLandlockPolicy` 同项注释）
-    resolveAttachmentsDir(),
-    // ⚠️ 2026-11-26（真机实测）：**刻意不**默认加入工具链缓存（`~/.bun` / `~/.npm` / `~/.cache`）。
-    // Low IL 要求"执行前打标签、执行后恢复"，而这两个动作在大目录上都按整棵树走 ACL
-    // （实测 `~/.bun` 单次 ≈ 9s ⇒ 每条非只读命令多付 ≈ 18s，`bun test` 的 5s 超时直接爆）。
-    // 需要让 `bun install` / `npm install` 这类命令写缓存的用户，把这些目录加到
-    // `sandbox.landlock.bashExtraWritablePaths`（与 Linux 策略同名的既有配置项）。
-    ...config.bashExtraWritablePaths,
-  ];
+  /**
+   * 2026-11-07：Windows Low IL 下**允许写**的目录（其余写操作由 MIC 拒绝）。
+   * 2026-11-27：清单与 macOS 共用 `buildShellManagedWritableDirs`（REPL 执行面同源）。
+   */
+  const windowsWritableDirs = (): string[] =>
+    buildShellManagedWritableDirs({
+      ...(input.cwd ? { cwd: input.cwd } : {}),
+      // ⚠️ 2026-11-26（真机实测）：**刻意不**默认加入工具链缓存（`~/.bun` / `~/.npm` / `~/.cache`）。
+      // Low IL 要求"执行前打标签、执行后恢复"，而这两个动作在大目录上都按整棵树走 ACL
+      // （实测 `~/.bun` 单次 ≈ 9s ⇒ 每条非只读命令多付 ≈ 18s，`bun test` 的 5s 超时直接爆）。
+      // 需要让 `bun install` / `npm install` 这类命令写缓存的用户，把这些目录加到
+      // `sandbox.landlock.bashExtraWritablePaths`（与 Linux 策略同名的既有配置项）。
+      extraWritablePaths: config.bashExtraWritablePaths,
+    });
 
   /**
    * 2026-11-07（方案 §10）：Windows 写隔离执行。

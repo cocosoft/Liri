@@ -151,16 +151,19 @@
 | 执行器 | 注入式 runner：断言 argv 形状 `[-p, <profile>, --, <shell>, -c, <cmd>]`、超时/输出上限/abort 调用 | ✅（桩） |
 | 真机 | macOS 实机：`bashEnabled=true` 下 `echo x > /tmp/a` 成功、`echo x > ~/Documents/a` 失败（`Operation not permitted`） | ✅ **已接入 CI（2026-10-26）**：`Verify macOS sandbox` step（`macos-latest`）跑 `bun run verify:sandbox-macos` |
 
-**真机自证脚本（2026-10-26 新增）**：`app/scripts/verify-macos-sandbox.ts` —— 复用生产同一套模块
-（探测器 / SBPL 生成器 / `sandbox-exec` 执行器），在临时目录里跑 4 条断言：
+**真机自证脚本（2026-10-26 新增；2026-11-27 扩到 6 条）**：`app/scripts/verify-macos-sandbox.ts` —— 复用生产同一套模块
+（探测器 / SBPL 生成器 / `sandbox-exec` 执行器），在临时目录里跑 6 条断言：
 ① 白名单内可写；② 白名单外被拒（非 0 退出 **且** 文件未落盘，不依赖本地化文案）；
-③ 系统文件可读（shell 能启动）；④ 用户命令 `exit 125` 原样透传（不得被当成"初始化失败"而回退 plain）。
+③ 系统文件可读（shell 能启动）；④ 用户命令 `exit 125` 原样透传（不得被当成"初始化失败"而回退 plain）；
+⑤ 内联运行时可在沙箱内执行（`bun -e`，钉住 `(allow sysctl-read)`）；⑥ **REPL 执行面**（SG-1，2026-11-27）：
+经生产同一路径 `REPLToolImpl.startREPL('javascript')` 起会话，断言 `session.sandbox.mode='sandbox-exec'`、
+工作区内可写、工作区外写入被拒且未落盘。
 退出码：0 全通过 / 1 有失败 / 2 环境不支持（非 macOS 或缺 `sandbox-exec`）。
 
 > CI 现状（**2026-10-26 订正**）：`ci.yml` 的 Test Suite 矩阵是 `ubuntu-latest, windows-latest, macos-latest`
 > ⇒ CI **有** macOS，且 `bun test` 在三平台都跑（本文件的纯函数用例会真在 macOS 上执行）。
 > **真机探针已接入 CI**（2026-10-26，W26-01）：`ci.yml` 新增 `Verify macOS sandbox (seatbelt write isolation)`
-> （`if: matrix.os == 'macos-latest'`）⇒ 4 条真机断言每次 CI 自动跑，不再依赖人工在 Mac 上执行。
+> （`if: matrix.os == 'macos-latest'`）⇒ 6 条真机断言每次 CI 自动跑，不再依赖人工在 Mac 上执行。
 > `sandbox-exec` 自 10.15 起被 Apple 标为 deprecated，若某版 runner 上不可用，该脚本会以 exit 2 明确报
 > 「不可用」而不是静默降级。
 

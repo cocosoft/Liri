@@ -12,6 +12,13 @@ import type {
   REPLExecution,
 } from './types/REPLTool.js';
 import { replSessionManager } from './REPLSessionManager';
+// SG-1（2026-11-27）：REPL 执行面接入平台写隔离（Linux Landlock / macOS Seatbelt / Windows Low IL）
+import {
+  assertReplSandboxPlanUsable,
+  logReplSandboxPlan,
+  planReplSandboxSpawn,
+} from './replSandboxSpawn';
+import type { ReplSandboxPlan } from './replSandboxSpawn';
 // G1（2026-11-03）：spawn 前 cwd 判定
 import { describeUnusableSpawnCwd } from '@openliri/infra/utils/cwd';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
@@ -35,15 +42,36 @@ export class REPLToolImpl implements REPLTool {
     const session = replSessionManager.createSession(language, options);
 
     try {
-      const { process, stdin, stdout, stderr } = this.spawnREPL(
-        language,
-        options
-      );
+      // G1（2026-11-03）：显式 cwd 无效 ⇒ 在 spawn 前抛出可操作错误
+      const cwdError = describeUnusableSpawnCwd(options.cwd, 'REPL 工作目录');
+      if (cwdError) {
+        throw new AppError(
+          cwdError,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
+      }
 
-      session.process = process;
-      session.stdin = stdin;
-      session.stdout = stdout;
-      session.stderr = stderr;
+      const { command, args } = resolveReplCommand(language, options);
+      const cwd = options.cwd || process.cwd();
+      const env = {
+        ...process.env,
+        ...options.env,
+      };
+
+      // SG-1：按平台计算 spawn 形态（能力不可用 ⇒ 降级并告警 / failClosed ⇒ 拒绝启动）
+      const plan = await planReplSandboxSpawn({ command, args, cwd, env });
+      assertReplSandboxPlanUsable(plan);
+      logReplSandboxPlan(plan);
+
+      const spawned = this.spawnREPL(plan, cwd);
+
+      session.process = spawned.process;
+      session.stdin = spawned.stdin;
+      session.stdout = spawned.stdout;
+      session.stderr = spawned.stderr;
+      attachReplSandboxRelease(session, plan);
 
       session.setStatus(REPLSessionStatus.RUNNING);
       this.sessions.set(session.id, session);
@@ -228,6 +256,13 @@ export class REPLToolImpl implements REPLTool {
     if (process) {
       process.kill();
     }
+    // SG-1：Windows Low IL 的会话级授权必须在进程结束后恢复（幂等；exit 事件可能已先触发）
+    const release = session.sandbox?.release;
+    const sandboxMode = session.sandbox?.mode;
+    if (release) {
+      session.sandbox = sandboxMode ? { mode: sandboxMode } : undefined;
+      await release();
+    }
     session.setStatus(REPLSessionStatus.STOPPED);
     this.sessions.delete(session.id);
     replSessionManager.removeSession(session.id);
@@ -262,64 +297,15 @@ export class REPLToolImpl implements REPLTool {
 
   /**
    * 启动REPL进程
+   *
+   * SG-1（2026-11-27）：`plan` 的 `command`/`args`/`env` 已按平台沙箱改写
+   * （helper / sandbox-exec 包裹），但 stdio 仍是三条 pipe（被包裹的解释器继承），
+   * 因此交互与跨执行状态保持不变。
    */
-  private spawnREPL(language: string, options: REPLOptions) {
-    let command: string;
-    let args: string[] = [];
-
-    switch (language.toLowerCase()) {
-      case 'python':
-        command = 'python';
-        // -q 关闭启动横幅；sys.ps1/ps2 清空交互提示符。
-        // 管道模式下（非 tty）CPython 将提示符输出到 stderr，会污染执行结果的错误判定。
-        args = ['-i', '-q', '-c', 'import sys; sys.ps1=""; sys.ps2="";'];
-        break;
-      case 'javascript':
-        command = 'node';
-        args = ['-i'];
-        break;
-      case 'typescript':
-        command = 'npx';
-        args = ['ts-node', '-i'];
-        break;
-      case 'bash':
-        command = 'bash';
-        args = ['-i'];
-        break;
-      case 'powershell':
-        command = 'powershell';
-        args = ['-NoExit', '-Command', 'Write-Host "PowerShell REPL started"'];
-        break;
-      default:
-        throw new AppError(
-          `Unsupported language: ${language}`,
-          ErrorCategory.EXECUTION,
-          ErrorSeverity.HIGH,
-          '1000'
-        );
-    }
-
-    if (options.extraArgs) {
-      args = [...args, ...options.extraArgs];
-    }
-
-    // G1（2026-11-03）：显式 cwd 无效 ⇒ 在 spawn 前抛出可操作错误
-    const cwdError = describeUnusableSpawnCwd(options.cwd, 'REPL 工作目录');
-    if (cwdError) {
-      throw new AppError(
-        cwdError,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
-    }
-
-    const childProcess = spawn(command, args, {
-      cwd: options.cwd || process.cwd(),
-      env: {
-        ...process.env,
-        ...options.env,
-      },
+  private spawnREPL(plan: ReplSandboxPlan, cwd: string) {
+    const childProcess = spawn(plan.command, plan.args, {
+      cwd,
+      env: plan.env,
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: false,
     });
@@ -331,6 +317,84 @@ export class REPLToolImpl implements REPLTool {
       stderr: childProcess.stderr,
     };
   }
+}
+
+/**
+ * 语言 ⇒ 解释器命令/参数（原 `spawnREPL` 内的 switch，SG-1 起外移以便先算沙箱形态）。
+ */
+function resolveReplCommand(
+  language: string,
+  options: REPLOptions
+): { command: string; args: string[] } {
+  let command: string;
+  let args: string[] = [];
+
+  switch (language.toLowerCase()) {
+    case 'python':
+      command = 'python';
+      // -q 关闭启动横幅；sys.ps1/ps2 清空交互提示符。
+      // 管道模式下（非 tty）CPython 将提示符输出到 stderr，会污染执行结果的错误判定。
+      args = ['-i', '-q', '-c', 'import sys; sys.ps1=""; sys.ps2="";'];
+      break;
+    case 'javascript':
+      command = 'node';
+      args = ['-i'];
+      break;
+    case 'typescript':
+      command = 'npx';
+      args = ['ts-node', '-i'];
+      break;
+    case 'bash':
+      command = 'bash';
+      args = ['-i'];
+      break;
+    case 'powershell':
+      command = 'powershell';
+      args = ['-NoExit', '-Command', 'Write-Host "PowerShell REPL started"'];
+      break;
+    default:
+      throw new AppError(
+        `Unsupported language: ${language}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+  }
+
+  if (options.extraArgs) {
+    args = [...args, ...options.extraArgs];
+  }
+
+  return { command, args };
+}
+
+/**
+ * SG-1：把会话与"沙箱授权释放"绑定。
+ *
+ * - 进程自行退出（用户代码 `exit()` / 崩溃 / 超时被 kill）⇒ 立即释放，
+ *   否则 Windows 的可写目录会一直停在 Low 完整性标签上；
+ * - `stopREPL` 也会调用同一个函数 ⇒ 用一次性包装去重（release 必须只生效一次，
+ *   引用计数由 `beginWindowsBashGrants` 维护，重复调用会把计数打穿）。
+ */
+export function attachReplSandboxRelease(
+  session: Pick<REPLSession, 'process' | 'sandbox'>,
+  plan: ReplSandboxPlan
+): void {
+  const mode = plan.mode === 'refuse' ? 'none' : plan.mode;
+  if (!plan.release) {
+    session.sandbox = { mode };
+    return;
+  }
+  let released = false;
+  const release = async (): Promise<void> => {
+    if (released) return;
+    released = true;
+    await plan.release?.();
+  };
+  session.sandbox = { mode, release };
+  session.process?.once('exit', () => {
+    void release();
+  });
 }
 
 /**

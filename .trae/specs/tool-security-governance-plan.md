@@ -488,12 +488,12 @@ F3–F10 仍待办 ⇒ 本节原「本计划无剩余待办」表述已按事实
 验证：`typecheck` 通过；全量 `bun run ci` **13723 pass / 42 skip / 0 fail**；
 `lint:tool-governance`（69 pass / gap 0，矩阵已重生）、`lint:tool-interception-reasons`、`lint:arch`、`lint:consts` 通过。
 
-### 13.2 待办（未修，按严重度）
+### 13.2 遗留项台账（F / SG；2026-11-27 两项目均已处置）
 
 | ID | 问题 |
 |---|---|
 | — | F1–F30 已全部处理（F7/F8/F9 取证为非入口/未接线，接线前必须补授权；其余已修复） |
-| SG-1 | **`notebook` 的执行面未落沙箱**（2026-11-27 取证）：`executeCell` / `executeAllCells` 经 `NotebookToolImpl` → REPL 的 `spawn(command, args, {cwd, env})` **不经过** Landlock / Seatbelt / Windows 沙箱；工具却声明 `sandboxLevel='execution'`（与 bash / code_run 同档）。审批面**无缺口**（`riskClassFor(action=execute*)` 已返回 `shell`，执行单元格按 shell 风险审批）；缺的是「批准后仍应受写隔离」。重开条件：需要让 REPL 子进程进沙箱时，按 bash 的 `bashLandlockExec` 同口径接线（三平台分别验证），并补 `verify:sandbox-macos` / Linux 负向断言 |
+| SG-1 | **已修复（2026-11-27）**：`notebook` / `repl` 的执行面已接入平台写隔离 —— `REPLToolImpl.startREPL` 先经 `repl/replSandboxSpawn.planReplSandboxSpawn` 计算 spawn 形态：Linux = `landlock-run <规则> -- <解释器>…`、macOS = `sandbox-exec -p <SBPL> -- <解释器>…`、Windows = `win-sandbox-run.exe --timeout-ms 0 -- <exe>…`（Low IL，会话期临时降完整性标签，`stopREPL` / 进程退出时恢复）。三种包裹都**透传 stdio** ⇒ marker 协议与跨执行状态不变。写白名单与 bash **同源**（`buildShellManagedWritableDirs` + `buildBashLandlockPolicy`，CS01）。不可用时：`failClosed=false` 降级普通 spawn 并 WARN（与 `code_run` 同口径）；`failClosed=true` ⇒ `refuse`（`SG1_REPL_SANDBOX_UNENFORCEABLE`）。取证：`app/tests/tools/replSandboxSpawn.test.ts`（14 项）+ `repl.integration.test.ts` 真机双向断言（工作区可写 / 家目录根写入被拒，Windows 实测通过）+ macOS `verify:sandbox-macos` 第 ⑥ 项。**残余（如实）**：Windows 上 `.cmd/.bat`（如 `npx`）无法被 helper 直接 `CreateProcess` ⇒ 降级并告警，`typescript` REPL 在该平台仍不隔离 |
 | SG-2 | `notebook` 的 `path`（create/save/export 落点）已于 2026-11-27 纳入权限层写闸（`WRITE_PATH_GATED_TOOLS`），受保护路径 deny × 五档 |
 
 ### 13.3 G9 结论订正（如实）

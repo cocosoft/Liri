@@ -23,6 +23,8 @@ import {
   toKernelPath,
 } from '@modules/sandbox/darwin/MacOSSandboxPolicy';
 import { runWithSandboxExec } from '@modules/sandbox/darwin/runWithSandboxExec';
+// SG-1（2026-11-27）：REPL / notebook 执行面也进同一套 Seatbelt —— 用**生产同一条路径**自证
+import { REPLToolImpl } from '@openliri/tool-code/repl/REPLToolImpl';
 
 interface ProbeResult {
   name: string;
@@ -129,6 +131,46 @@ async function main(): Promise<void> {
     pass: inlineRun.exitCode === 0 && inlineRun.stdout.includes('inline-ok'),
     detail: `exit=${inlineRun.exitCode} stdout=${inlineRun.stdout.trim().slice(0, 40) || '—'} stderr=${inlineRun.stderr.trim().slice(0, 120) || '—'}`,
   });
+
+  // ⑥ SG-1（2026-11-27）：REPL / notebook 的执行面（`NotebookToolImpl` → `REPLToolImpl`）
+  //    也必须落在同一套 Seatbelt 里：可写工作区、不可写白名单外。
+  //    用 `javascript`（node 一定存在）避免依赖 macOS runner 是否有 `python`。
+  const replDenied = join(denyDir, 'repl-denied.txt');
+  try {
+    const repl = new REPLToolImpl();
+    const session = await repl.startREPL('javascript', {
+      cwd: allowDir,
+      timeout: TIMEOUT_MS,
+    });
+    try {
+      const mode = session.sandbox?.mode;
+      const wrote = await repl.executeCode(
+        session,
+        'require("fs").writeFileSync("repl-ok.txt", "ok")'
+      );
+      const denied = await repl.executeCode(
+        session,
+        `require("fs").writeFileSync(${JSON.stringify(replDenied)}, "x")`
+      );
+      results.push({
+        name: 'REPL 执行面进沙箱（可写工作区、越界被拒）',
+        pass:
+          mode === 'sandbox-exec' &&
+          wrote.success &&
+          !denied.success &&
+          !existsSync(replDenied),
+        detail: `mode=${mode} 工作区写=${wrote.success} 越界写=${denied.success} 越界落盘=${existsSync(replDenied)}`,
+      });
+    } finally {
+      await repl.stopREPL(session);
+    }
+  } catch (error) {
+    results.push({
+      name: 'REPL 执行面进沙箱（可写工作区、越界被拒）',
+      pass: false,
+      detail: `启动/执行异常：${String(error).slice(0, 200)}`,
+    });
+  }
 
   rmSync(allowDir, { recursive: true, force: true });
   rmSync(denyDir, { recursive: true, force: true });

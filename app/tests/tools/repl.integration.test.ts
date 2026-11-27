@@ -7,6 +7,9 @@
  */
 import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
 import { spawnSync } from 'child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { REPLToolImpl } from '@openliri/tool-code/repl/REPLToolImpl';
 import { replSessionManager } from '@openliri/tool-code/repl/REPLSessionManager';
 import type { REPLSession } from '@openliri/tool-code/repl/types/REPLTool';
@@ -31,10 +34,17 @@ const EXEC_TIMEOUT_MS = Number(process.env.REPL_TEST_TIMEOUT_MS) || 8000;
 describe('REPLToolImpl 真实 spawn（P3-1 完成标记协议）', () => {
   const tool = new REPLToolImpl();
   let session: REPLSession | undefined;
+  // SG-1（2026-11-27）：REPL 现在会按平台进写隔离（Windows 需给"可写目录"临时降完整性标签）。
+  // 用临时目录当工作区，避免测试跑一次就去改**仓库根**的 ACL（真机上那是整棵树）。
+  let testCwd: string;
 
   beforeAll(async () => {
+    testCwd = mkdtempSync(join(tmpdir(), 'repl-it-'));
     if (!pythonAvailable) return;
-    session = await tool.startREPL('python', { timeout: EXEC_TIMEOUT_MS });
+    session = await tool.startREPL('python', {
+      cwd: testCwd,
+      timeout: EXEC_TIMEOUT_MS,
+    });
   });
   // 注（P0-8）：bun 的 per-test timeout **不覆盖钩子/加载期**，而 `beforeAll` 的类型不接受超时参数
   //（传第二参会 `TS2554`）⇒ 钩子期若挂死仍无法靠超时兜底（属 P0-8 死锁的已知边界，另行专项）。
@@ -44,6 +54,7 @@ describe('REPLToolImpl 真实 spawn（P3-1 完成标记协议）', () => {
     // `stopREPL` 只把会话置 STOPPED（保留在进程级单例里），不在本文件清理 ⇒ 后续文件的
     // 会话计数会被带偏（`notebook.test.ts` 的「无会话时新建」实测 1 → 2）。
     replSessionManager.clearSessions();
+    rmSync(testCwd, { recursive: true, force: true });
   });
 
   test.skipIf(!pythonAvailable)(
@@ -90,7 +101,10 @@ describe('REPLToolImpl 真实 spawn（P3-1 完成标记协议）', () => {
     async () => {
       // U-1 修复前：executeCode 无超时（等进程退出）→ 永久挂起 → 会话锁泄漏。
       // 修复后：session.options.timeout 无条件生效，超时 kill 进程 + resolve 超时结果。
-      const s = await tool.startREPL('python', { timeout: 1000 });
+      const s = await tool.startREPL('python', {
+        cwd: testCwd,
+        timeout: 1000,
+      });
       try {
         const start = Date.now();
         const r = await tool.executeCode(s, 'import time; time.sleep(10)');
@@ -104,5 +118,33 @@ describe('REPLToolImpl 真实 spawn（P3-1 完成标记协议）', () => {
       }
     },
     15000 // 真实 spawn 集成测试，全量并行时给足余量
+  );
+
+  /**
+   * SG-1（2026-11-27）：真写隔离的**双向**断言。
+   *
+   * 只在"本机确实施加了隔离"时跑（无 helper 的 CI / 关闭总开关的环境会降级为 `none`，
+   * 那样的环境里"写不出去"不成立，属预期，不该假红）。
+   */
+  test.skipIf(!pythonAvailable)(
+    '沙箱生效时：可写工作区，且工作区外写入被拒',
+    async () => {
+      if (session?.sandbox?.mode === 'none' || !session?.sandbox) return;
+      // ① 工作区（授权目录）内可写
+      const ok = await tool.executeCode(
+        session,
+        'open("repl-sbx-write-ok.txt", "w").write("ok")'
+      );
+      expect(ok.success).toBe(true);
+      // ② 工作区外（用户家目录根，任何平台都不在白名单内）写入被拒
+      const denied = await tool.executeCode(
+        session,
+        'import os\n' +
+          'open(os.path.join(os.path.expanduser("~"), "liri-repl-sbx-denied.txt"), "w").write("x")'
+      );
+      expect(denied.success).toBe(false);
+      expect(denied.error).toBeTruthy();
+    },
+    15000
   );
 });

@@ -70,6 +70,11 @@ Orchestrator 只负责驱动循环、执行工具、感知结果，推理决策�
   由 Agent 主链（`chat/services/permissionGate.ts`）与 HTTP 直调（`CoreAPIImpl.executeTool`）同源注入；
   `workspaceStatus=unbound` 的会话没有根 ⇒ 只受"受保护路径"地板约束。
 - `bash` / `powershell` 的路径判据仍由工具层 `bashSecurityGate` 承担（刻意分层，CD07）。
+- **执行类工具（`sandboxLevel='execution'`）的"批准后仍受限"在工具层，不在权限层**：
+  `bash` / `powershell` / `code_run` 与 **`repl` / `notebook`（SG-1，2026-11-27 起）** 都在各自
+  spawn 前接入平台写隔离（Linux Landlock / macOS Seatbelt / Windows Low IL），写白名单与
+  bash 同源（`buildShellManagedWritableDirs` + `buildBashLandlockPolicy`）；能力不可用时按
+  `sandbox.landlock.failClosed` 决定「拒绝」还是「降级 + 显式告警」，**不静默降级**。
 
 
 ### 1.5 模型数据唯一源

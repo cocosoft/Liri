@@ -66,6 +66,11 @@ describe('缺参文案：三档依据（禁止解析文本反推 —— CS02）'
     expect(detail.error).toContain('参数 JSON 不完整');
     expect(detail.error).toContain('12068');
     expect(detail.error).toContain('分段');
+    // P2-4②（2026-11-28）：建议必须**可执行** —— 给出真实参数名与阈值，
+    // 否则模型只知道"要分段"，不知道 file_write 支持 append / source_file。
+    expect(detail.error).toContain('append:true');
+    expect(detail.error).toContain('4000');
+    expect(detail.error).toContain('source_file');
     // 收到键里也不应把保留键算进去
     expect(detail.receivedKeys).toEqual([]);
     expect(detail.parseErr?.rawLength).toBe(12068);

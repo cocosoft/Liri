@@ -156,6 +156,26 @@ function outOfWorkspaceAsk(
   );
 }
 
+/**
+ * G3（2026-11-27）：本次判定可用的**工作区根**（供 `workspaceRoot` 规则的作用域闸）。
+ *
+ * 与 `simulate` 同口径（`simulate.ts` 已把请求里的 `workspaceRoots` 传进 `RuleOptions`）——
+ * 此前执行链只传指纹、不传根 ⇒ 带 `workspaceRoot` 的规则在模拟里命中、在真实执行里永不命中
+ * （又一处 simulate↔执行分歧）。取不到根 ⇒ `undefined` ⇒ 该规则不匹配（fail-closed）。
+ */
+function resolveMatchRoots(
+  context: PermissionContext
+): string[] | undefined {
+  const roots = (context.workspaceRoots ?? []).filter(
+    (root): root is string => typeof root === 'string' && root.trim().length > 0
+  );
+  if (roots.length > 0) return roots;
+  const single = context.workspacePath;
+  return typeof single === 'string' && single.trim().length > 0
+    ? [single]
+    : undefined;
+}
+
   /**
    * 处理绕过权限检查模式
    * @returns 权限决策
@@ -267,7 +287,11 @@ function outOfWorkspaceAsk(
     const approvalFingerprint = hashApprovalFingerprint(
       resolveApprovalFingerprint(toolOrName, input)
     );
-    const matchOptions = { fingerprint: approvalFingerprint };
+    const matchOptions = {
+      fingerprint: approvalFingerprint,
+      // G3：带上工作区根 —— 否则 `workspaceRoot` 规则在真实执行里永不命中（模拟却命中）
+      workspaceRoots: resolveMatchRoots(context),
+    };
     const matchingDenyRule = deps.ruleManager.getMatchingRule(
       toolName,
       input,
@@ -382,7 +406,11 @@ function outOfWorkspaceAsk(
     const approvalFingerprint = hashApprovalFingerprint(
       resolveApprovalFingerprint(toolOrName, input)
     );
-    const matchOptions = { fingerprint: approvalFingerprint };
+    const matchOptions = {
+      fingerprint: approvalFingerprint,
+      // G3：带上工作区根 —— 否则 `workspaceRoot` 规则在真实执行里永不命中（模拟却命中）
+      workspaceRoots: resolveMatchRoots(context),
+    };
 
     const matchingDenyRule = deps.ruleManager.getMatchingRule(
       toolName,
@@ -637,7 +665,11 @@ function outOfWorkspaceAsk(
     const approvalFingerprint = hashApprovalFingerprint(
       resolveApprovalFingerprint(toolOrName, input)
     );
-    const matchOptions = { fingerprint: approvalFingerprint };
+    const matchOptions = {
+      fingerprint: approvalFingerprint,
+      // G3：带上工作区根 —— 否则 `workspaceRoot` 规则在真实执行里永不命中（模拟却命中）
+      workspaceRoots: resolveMatchRoots(context),
+    };
 
     const matchingDenyRule = deps.ruleManager.getMatchingRule(
       toolName,

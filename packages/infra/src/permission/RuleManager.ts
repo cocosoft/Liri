@@ -976,6 +976,12 @@ export class RuleManager {
     if (rule.inputFingerprint) {
       return false;
     }
+    // G3（2026-11-27）：`workspaceRoot` 规则（「本工作区永久信任」）同属**调用级**，
+    // 只能经 `isRuleMatch` 的作用域闸命中；若参与"整体工具"匹配，就会退化成全局放行
+    // （作用域闸只在 `isRuleMatch` 里，且调用方不给根时 fail-closed）。
+    if (rule.workspaceRoot) {
+      return false;
+    }
     return isToolNameMatch(toolName, rule.toolName);
   }
 

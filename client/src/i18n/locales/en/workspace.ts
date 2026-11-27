@@ -170,6 +170,10 @@ const enWorkspace = {
       "Command execution (bash / powershell): write isolation is not effective on this machine (platform capability unavailable or the sandbox master switch is off) ⇒ non-read-only commands fall back to plain execution and keep the approval card",
     // 2026-11-27 (group A): state which backend actually enforces write isolation
     postureWriteIsolationBackend: "Write isolation backend: {{backend}}",
+    // 2026-11-27 (group A): capability probe details (reason code when unavailable)
+    postureCapabilityAvailable: "Platform sandbox capability: probed and available",
+    postureCapabilityUnavailable:
+      "Platform sandbox capability: unavailable (reason code {{reasonCode}})",
     postureGuardOn: "Interpreter confirmation (BASH_INTERPRETER_GUARD): on",
     postureGuardOff: "Interpreter confirmation (BASH_INTERPRETER_GUARD): off",
     // P2-c (2026-11-07): permission tier vs sandbox — "ask or not" vs "what it may touch"

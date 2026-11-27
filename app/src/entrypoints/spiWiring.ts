@@ -564,6 +564,8 @@ export async function registerAllSpis(
           shellWriteIsolated: sandboxPosture.shellWriteIsolated,
           // 2026-11-27（A 组）：写隔离的**具体后端**（landlock / sandbox-exec / windows-low-il / none）
           shellWriteIsolation: sandboxPosture.shellWriteIsolation,
+          // 2026-11-27（A 组）：能力探测细节 —— 回答"为什么没隔离"（可用性 / 原因码 / probe 结论）
+          capabilities: sandboxPosture.capabilities,
           openRiskCodes: sandboxPosture.openRiskCodes,
           // A5-①：解释器命令二次确认开关（默认关）—— 让用户看到"现在到底受不受这道门保护"
           bashInterpreterGuard,
@@ -590,6 +592,8 @@ export async function registerAllSpis(
         shellWriteIsolated: posture.shellWriteIsolated,
         // 2026-11-27（A 组）：靠哪个后端隔离（macOS/Windows 不再看起来像"没隔离"）
         shellWriteIsolation: posture.shellWriteIsolation,
+        // 2026-11-27（A 组）：能力探测细节（不可用时能直接看到原因码）
+        capabilities: posture.capabilities,
       });
       for (const risk of posture.openRisks) {
         logger.warn('沙箱 fail-open（2026-08-25 兼容优先的既定决策，非缺陷）', {

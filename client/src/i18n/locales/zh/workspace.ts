@@ -162,6 +162,9 @@ const zhWorkspace = {
       "命令执行（bash / powershell）：本机写隔离未生效（平台能力未就绪或沙箱总开关关闭）⇒ 非只读命令降级为普通执行，并保留审批卡",
     // 2026-11-27（A 组）：如实说明"靠哪个后端隔离"（后端名由后端给出，前端只做可读化）
     postureWriteIsolationBackend: "写隔离后端：{{backend}}",
+    // 2026-11-27（A 组）：能力探测细节（不可用时给出原因码，排障不用翻日志）
+    postureCapabilityAvailable: "平台沙箱能力：已探测可用",
+    postureCapabilityUnavailable: "平台沙箱能力：不可用（原因码 {{reasonCode}}）",
     postureGuardOn: "解释器命令二次确认（BASH_INTERPRETER_GUARD）：已开启",
     postureGuardOff: "解释器命令二次确认（BASH_INTERPRETER_GUARD）：未开启",
     // P2-c（2026-11-07）：权限档 ≠ 沙箱 —— 前者管「要不要问」，后者管「跑起来能碰什么」

@@ -62,6 +62,12 @@ function source(
       shellWriteIsolated: false,
       // 2026-11-27（A 组）：写隔离后端名（none ⇔ 未生效）
       shellWriteIsolation: 'none',
+      // 2026-11-27（A 组）：能力探测细节
+      capabilities: {
+        platform: 'linux',
+        available: false,
+        reasonCode: 'not-probed',
+      },
       landlock: {
         enabled: false,
         bashEnabled: false,

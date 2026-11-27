@@ -136,6 +136,17 @@ function SandboxPage() {
               }),
             ]
           : []),
+        // 2026-11-27（A 组）：能力探测细节 —— 不可用时直接给出原因码（排障不用再翻日志）
+        ...(posture.capabilities
+          ? [
+              posture.capabilities.available
+                ? t("sandbox.postureCapabilityAvailable")
+                : t("sandbox.postureCapabilityUnavailable", {
+                    // 原因码缺省时用占位符（不写状态词，`lint:state-ratchet` 只认登记词）
+                    reasonCode: posture.capabilities.reasonCode ?? "—",
+                  }),
+            ]
+          : []),
         posture.bashInterpreterGuard
           ? t("sandbox.postureGuardOn")
           : t("sandbox.postureGuardOff"),

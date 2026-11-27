@@ -21,7 +21,10 @@ import { readLandlockConfig } from './landlock/config';
 import { LandlockDetector } from './landlock/LandlockDetector';
 import { resolveSandboxExecutionSignal } from './sandboxExecutionSignal';
 import { resolveShellWriteIsolationBackend } from './shellWriteIsolation';
-import type { ShellWriteIsolationBackend } from './shellWriteIsolation';
+import type {
+  ShellWriteIsolationBackend,
+  ShellWriteIsolationCapability,
+} from './shellWriteIsolation';
 
 /**
  * fail-open 风险的**语言中立编码**（A5-①，2026-11-05）。
@@ -81,6 +84,14 @@ export interface SandboxPosture {
    * "靠 Landlock / Seatbelt / Low IL 隔离"，而不是把 macOS/Windows 显示成"没隔离"。
    */
   shellWriteIsolation: ShellWriteIsolationBackend;
+  /**
+   * 2026-11-27（A 组）：平台沙箱的**能力探测细节**（可用性 / 原因码 / 人类可读原因 /
+   * Windows `--probe` 结论）。
+   *
+   * 与 `shellWriteIsolation` 正交：后者回答"现在生效吗"，这里回答"为什么没生效"
+   *（且**不看总开关** —— 总开关见 `landlock.enabled`）。
+   */
+  capabilities: ShellWriteIsolationCapability;
   /** 当前姿态下**实际存在**的 fail-open 风险（人类可读；空数组 = 无） */
   openRisks: string[];
   /** 同上的语言中立编码（前端 i18n 用；与 `openRisks` 一一对应） */
@@ -97,6 +108,8 @@ export interface DescribeSandboxPostureOverrides {
   shellWriteIsolated?: boolean;
   /** 仅供单测注入（缺省读 `resolveShellWriteIsolationBackend()`） */
   shellWriteIsolation?: ShellWriteIsolationBackend;
+  /** 仅供单测注入（缺省用同一次能力探测的 `capability`） */
+  capabilities?: ShellWriteIsolationCapability;
 }
 
 /**
@@ -142,6 +155,7 @@ export function describeSandboxPosture(
     overrides.shellWriteIsolated ?? shellWriteState.effective;
   const shellWriteIsolation =
     overrides.shellWriteIsolation ?? shellWriteState.backend;
+  const capabilities = overrides.capabilities ?? shellWriteState.capability;
 
   const openRisks: string[] = [];
   const openRiskCodes: SandboxRiskCode[] = [];
@@ -171,6 +185,7 @@ export function describeSandboxPosture(
     landlock,
     shellWriteIsolated,
     shellWriteIsolation,
+    capabilities,
     openRisks,
     openRiskCodes,
   };

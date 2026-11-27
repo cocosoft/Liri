@@ -54,6 +54,17 @@ export interface SandboxStatus {
      */
     shellWriteIsolation?:
       "landlock" | "sandbox-exec" | "windows-low-il" | "none";
+    /**
+     * 2026-11-27（A 组）：平台沙箱能力探测细节（`available` 不看总开关；
+     * `reasonCode` 为语言中立编码，`reason` 仅排障用）。
+     */
+    capabilities?: {
+      platform: string;
+      available: boolean;
+      reasonCode?: string;
+      reason?: string;
+      runnable?: boolean | null;
+    } | null;
     openRiskCodes: string[];
     bashInterpreterGuard?: boolean;
   } | null;

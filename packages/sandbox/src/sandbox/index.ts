@@ -170,6 +170,7 @@ export {
 } from './shellWriteIsolation';
 export type {
   ShellWriteIsolationBackend,
+  ShellWriteIsolationCapability,
   ShellWriteIsolationParams,
   ShellWriteIsolationState,
 } from './shellWriteIsolation';

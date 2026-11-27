@@ -46,6 +46,14 @@ export interface SandboxPostureSnapshot {
   shellWriteIsolated: boolean;
   /** 2026-11-27（A 组）：写隔离后端（`landlock` / `sandbox-exec` / `windows-low-il` / `none`） */
   shellWriteIsolation: string;
+  /** 2026-11-27（A 组）：平台沙箱能力探测细节（可用性 / 原因码 / Windows probe 结论） */
+  capabilities?: {
+    platform: string;
+    available: boolean;
+    reasonCode?: string;
+    reason?: string;
+    runnable?: boolean | null;
+  };
   /** fail-open 风险的语言中立编码（围栏规则 S4 消费） */
   openRiskCodes: string[];
   /** 同上的人类可读说明（仅供取证展示） */
@@ -101,6 +109,8 @@ export function buildSandboxPostureSnapshot(
     // 2026-11-27（A 组）：围栏也能看到"靠哪个后端隔离"（此前 macOS/Windows 一律像"没隔离"）
     shellWriteIsolated: posture.shellWriteIsolated,
     shellWriteIsolation: posture.shellWriteIsolation,
+    // 2026-11-27（A 组）：能力探测细节（不可用时围栏/排障能直接看到原因码）
+    capabilities: { ...posture.capabilities },
     openRiskCodes: [...posture.openRiskCodes],
     openRisks: [...posture.openRisks],
     violationCount: violations.length,

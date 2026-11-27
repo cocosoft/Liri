@@ -114,6 +114,19 @@ export interface SandboxRuntimeStatus {
      * 只用于**展示**：沙箱豁免（S1）仍只看 `mode`，本字段不参与任何裁决。
      */
     shellWriteIsolation?: string;
+    /**
+     * 2026-11-27（A 组）：平台沙箱的**能力探测细节**（回答"为什么没隔离"）。
+     *
+     * `available` **不看总开关**（总开关见 `landlock.enabled`）；`reasonCode` 为语言中立编码，
+     * `reason` 仅供排障阅读；`runnable` 仅 Windows（`helper --probe` 实测结论，`null` = 未探测）。
+     */
+    capabilities?: {
+      platform: string;
+      available: boolean;
+      reasonCode?: string;
+      reason?: string;
+      runnable?: boolean | null;
+    };
     openRiskCodes: string[];
     /** A5-①：解释器命令需人工确认（`BASH_INTERPRETER_GUARD`，默认关） */
     bashInterpreterGuard?: boolean;

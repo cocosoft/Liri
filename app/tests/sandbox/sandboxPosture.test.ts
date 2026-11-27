@@ -110,6 +110,9 @@ describe('describeSandboxPosture（#7 沙箱姿态可读化）', () => {
     expect(posture.shellWriteIsolation === 'none').toBe(
       posture.shellWriteIsolated === false
     );
+    // 2026-11-27（A 组）：能力探测细节（回答"为什么没隔离"）
+    expect(posture.capabilities.platform).toBe(process.platform);
+    expect(typeof posture.capabilities.available).toBe('boolean');
     expect(Array.isArray(posture.openRisks)).toBe(true);
     expect(posture.openRiskCodes).toHaveLength(posture.openRisks.length);
     // 可 JSON 序列化（启动日志会原样落盘）

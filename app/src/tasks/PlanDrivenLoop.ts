@@ -44,10 +44,12 @@ import {
   isPlanResumableByExecutor,
 } from './plan/planResumeExecution';
 import {
-  parseStepVerdict,
+  resolveStepVerdict,
   STEP_VERDICT_BLOCKED,
   STEP_VERDICT_PARTIAL,
 } from './stepVerdict.js';
+// 2026-11-27：非收敛终止的唯一事实源（LRO 经典链早已据此落 failed，PDL 本次对齐）
+import { isNonConvergedTermination } from './lro/pureDecisions.js';
 import { emitPdcaLiveEvent } from './PdcaLiveEvents.js';
 import { writePdcaCheckpoint } from './PdcaWorkItemBridge.js';
 import { goalMetricsService } from './db/GoalMetricsService.js';
@@ -1464,22 +1466,23 @@ export class PlanDrivenLoop {
           // 末条 assistant 文本常为空；不得因此判成 step_done/unverified 计完成。
           const pausedForApproval =
             result.terminationReason === 'awaiting_approval';
-          const verdict = pausedForApproval
-            ? {
-                verdict: STEP_VERDICT_BLOCKED,
-                reason: '等待工具审批：批准后会自动续跑（本轮不计完成）',
-              }
-            : parseStepVerdict(stepText);
-          const verdictNote =
-            verdict.verdict === STEP_VERDICT_BLOCKED
-              ? `[STEP_BLOCKED] ${verdict.reason ?? '模型自述本步受阻'}`
-              : verdict.verdict === STEP_VERDICT_PARTIAL
-                ? '[STEP_PARTIAL] 本步仅部分达成'
-                : '';
+          // 2026-11-27（真机 session_mwz477wj251057474e）：终止事实优先于模型自述
+          //（io_loop / aborted 等未收敛收尾 ⇒ 即便自报 step_done 也不得计完成）
+          const nonConverged = isNonConvergedTermination(
+            result.terminationReason
+          );
+          const stepVerdict = resolveStepVerdict({
+            stepText,
+            pausedForApproval,
+            nonConvergedReason: nonConverged
+              ? result.terminationReason
+              : undefined,
+            turnCount: result.turnCount,
+          });
 
           if (
-            verdict.verdict === STEP_VERDICT_BLOCKED ||
-            verdict.verdict === STEP_VERDICT_PARTIAL
+            stepVerdict.verdict === STEP_VERDICT_BLOCKED ||
+            stepVerdict.verdict === STEP_VERDICT_PARTIAL
           ) {
             // 2026-11-13（暂停态，会话 `session_mwdcivrue74d4838ff`）：工具在等用户审批
             // **不是**"本步失败" —— 不得 markStepFailed（那会让计划终态化 + 熔断后续批次），
@@ -1498,7 +1501,7 @@ export class PlanDrivenLoop {
                 state: 'failed',
                 paused: true,
                 output: stepText.slice(0, 2000),
-                error: verdictNote,
+                error: stepVerdict.note,
                 partialOutput: stepText.slice(0, 2000) || undefined,
                 durationMs: duration,
                 turnCount: result.turnCount,
@@ -1516,8 +1519,8 @@ export class PlanDrivenLoop {
             // 目标未达成 ⇒ 记 failed（不计完成）。不重试：缺信息/需人决策重跑同一 prompt
             // 不会改变结论，重试只会放大空转（会话导出实证：同一空转 × 5 步）。
             const failureText = degradedNote
-              ? `${degradedNote}\n${verdictNote}`
-              : verdictNote;
+              ? `${degradedNote}\n${stepVerdict.note}`
+              : stepVerdict.note;
             taskOrchestrator.markStepFailed(stepId, failureText, {
               partialOutput: stepText.slice(0, 2000) || undefined,
               terminationReason: result.terminationReason,
@@ -1537,15 +1540,21 @@ export class PlanDrivenLoop {
             });
             this._broadcastStepProgress(stepId, 'failed', i, subtasks.length);
             this._notifyProgress();
-            logger.warn('步骤目标未达成（结论标记）', {
-              sessionId: this.sessionId,
-              stepId,
-              verdict: verdict.verdict,
-              reason: verdict.reason,
-              turnCount: result.turnCount,
-            });
+            logger.warn(
+              nonConverged
+                ? '步骤未在预算内收敛（不计完成）'
+                : '步骤目标未达成（结论标记）',
+              {
+                sessionId: this.sessionId,
+                stepId,
+                verdict: stepVerdict.verdict,
+                reason: stepVerdict.reason,
+                turnCount: result.turnCount,
+                terminationReason: result.terminationReason,
+              }
+            );
             this._consecutiveBlockedSteps =
-              verdict.verdict === STEP_VERDICT_BLOCKED
+              stepVerdict.verdict === STEP_VERDICT_BLOCKED && !nonConverged
                 ? this._consecutiveBlockedSteps + 1
                 : 0;
             return 'failed';
@@ -1557,7 +1566,10 @@ export class PlanDrivenLoop {
           // 13-P1-1 Step 1（2026-10-06）：降级输入需**留痕**在 plan 步 result（与
           // [DEPENDENCY_BLOCKED] 对称，供用户/审计可见）；⚠️ 不并入 stepOutputs——避免降级
           // 标注污染下游注入与审计所读的"前驱正文"。
-          const stepResultText = stepText.slice(0, 2000) || '完成';
+          // 2026-11-27：空正文不得兜底成「完成」（真机 step_3 空文本+aborted 被写成 result="完成"）
+          const stepResultText =
+            stepText.slice(0, 2000) ||
+            `（本步无可见输出；终止原因：${result.terminationReason ?? 'unknown'}）`;
           taskOrchestrator.markStepCompleted(
             stepId,
             degradedNote
@@ -1585,7 +1597,7 @@ export class PlanDrivenLoop {
             stepId,
             description: task.description,
             state: 'completed',
-            output: stepText || '步骤完成',
+            output: stepText || stepResultText,
             durationMs: duration,
             turnCount: result.turnCount,
             tokenCount: result.totalTokens,

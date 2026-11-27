@@ -50,7 +50,11 @@ import {
   isListingNoMatch,
 } from './listingNoMatch';
 // P1-1（2026-11-06）：检查/测试类命令的非零退出 = 有效证据（不烧熔断 invalid 预算）
-import { isExpectedNonzeroExit } from './exitSemantics';
+// P0-2（2026-11-27）：安装失败 / 命令不存在探测失败 = 环境层阻塞（不按"模型无效"熔断）
+import {
+  isExpectedNonzeroExit,
+  isEnvironmentProbeFailure,
+} from './exitSemantics';
 // P2-2（2026-11-04）：只读探测被安全门拦截时附"改用 glob / list"的出路提示（**不改判定**）
 import { appendReadOnlyProbeHint } from './blockedProbeHint';
 // S1-5（2026-10-11）：命令规范化"单一事实源" —— 审批哈希 / 安全拦截层 / 最终 spawn /
@@ -811,6 +815,12 @@ export class BashTool extends BaseTool {
       command: executedCommand,
       exitCode,
     });
+    // P0-2（2026-11-27，真机 `session_mwz477wj251057474e`）：安装失败 / `where` 探测无此命令
+    // ⇒ **环境层**阻塞（本机缺依赖），不得按"模型无效输出"烧 invalid 预算（3 轮即 circuit_breaker）。
+    // 判据为命令族 + 非零退出（结构化），不解析错误文案（CS02）。
+    const envProbeFailure =
+      !expectedNonzeroExit &&
+      isEnvironmentProbeFailure({ command: executedCommand, exitCode });
 
     // B 类可观测性缺口 ②（2026-10-25）：执行异常此前**零 app.log** —— 只返回 failureResult
     // 给模型，排查"命令为什么失败"只能翻会话消息。现补日志（含命令摘要 + stderr 截断）。
@@ -823,6 +833,9 @@ export class BashTool extends BaseTool {
     };
     if (expectedNonzeroExit) {
       logger.info('bash: expected_nonzero_exit', errorLogMeta);
+    } else if (envProbeFailure) {
+      // 环境层失败单独一条（可统计"本机缺依赖"频次，且不与真实工具故障混在一起）
+      logger.warn('bash: env_unavailable', errorLogMeta);
     } else {
       logger.error('bash: execute_error', errorLogMeta);
     }
@@ -841,7 +854,9 @@ export class BashTool extends BaseTool {
       timestamp: Date.now(),
       ...(expectedNonzeroExit
         ? { failureKind: 'expected_nonzero_exit' as const }
-        : {}),
+        : envProbeFailure
+          ? { failureKind: 'env_unavailable' as const }
+          : {}),
       newMessages: [
         {
           role: 'system',

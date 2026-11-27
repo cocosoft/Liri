@@ -172,6 +172,40 @@ describe('BashTool.execute catch 收尾（P3-2 外移前特征化）', () => {
     expect(callsOf('bash: execute_error').length).toBe(0);
   });
 
+  /**
+   * P0-2（2026-11-27，真机 `session_mwz477wj251057474e`）：依赖安装失败 / 命令不存在探测失败
+   * ⇒ `failureKind=env_unavailable`（环境层阻塞 2 轮即给结论），而不是按工具失败烧
+   * invalid 预算（3 轮即 `circuit_breaker`，用户看到"画到一半报错中断"）。
+   */
+  it('依赖安装失败 / where 无此命令 ⇒ env_unavailable 分类 + warn 级日志', async () => {
+    const npm = await runWithExecError(
+      'cd /d E:\\repo && npm install @resvg/resvg-js --no-audit --no-fund',
+      makeExecError({
+        message: 'Command failed: npm install',
+        code: 1,
+        stderr: 'ERR_SOCKET_TIMEOUT',
+      }),
+      { bypassAsk: true }
+    );
+    expect(npm.success).toBe(false);
+    expect(npm.failureKind).toBe('env_unavailable');
+    expect(callsOf('bash: env_unavailable').length).toBe(1);
+    // 分类变了 ⇒ 不再同时记成通用执行错误
+    expect(callsOf('bash: execute_error').length).toBe(0);
+
+    const where = await runWithExecError(
+      'where magick',
+      makeExecError({
+        message: 'Command failed: where magick',
+        code: 1,
+        stderr: '信息: 用提供的模式无法找到文件。',
+      }),
+      { bypassAsk: true }
+    );
+    expect(where.success).toBe(false);
+    expect(where.failureKind).toBe('env_unavailable');
+  });
+
   it('spawn ENOENT ⇒ 追加「cwd 不存在 / shell 缺失」双因提示', async () => {
     const result = await runWithExecError(
       'echo enoent',

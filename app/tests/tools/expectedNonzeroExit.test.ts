@@ -13,6 +13,7 @@
 
 import { describe, expect, it } from 'bun:test';
 import {
+  isEnvironmentProbeFailure,
   isExpectedNonzeroExit,
   lastCommandSegment,
 } from '../../src/tools/bash/exitSemantics';
@@ -95,6 +96,66 @@ describe('classifyTurn：expected_nonzero_exit 不计入 invalid', () => {
     expect(
       classifyTurn([
         { status: 'error', failureKind: 'expected_nonzero_exit' },
+        { status: 'error', failureKind: 'tool_error' },
+      ])
+    ).toBe('invalid');
+  });
+});
+
+/**
+ * P0-2（2026-11-27，真机 `session_mwz477wj251057474e`）：环境层失败不得吃 invalid 预算。
+ *
+ * 该轮模型为"把写好的 SVG 转 PNG"连续执行 `npm install @resvg/resvg-js` →
+ * `where magick & where inkscape …` → `pip install cairosvg`，三次都因本机缺依赖失败，
+ * 却按"工具失败"计 invalid ⇒ 3 轮即 `circuit_breaker`（用户看到"画到一半报错中断"）。
+ */
+describe('isEnvironmentProbeFailure：安装失败 / 命令不存在探测', () => {
+  const yes = (command: string, exitCode = 1): void => {
+    expect(isEnvironmentProbeFailure({ command, exitCode })).toBe(true);
+  };
+  const no = (command: string, exitCode = 1): void => {
+    expect(isEnvironmentProbeFailure({ command, exitCode })).toBe(false);
+  };
+
+  it('依赖获取（各包管理器）失败 ⇒ 环境层', () => {
+    yes('npm install @resvg/resvg-js --no-audit --no-fund');
+    yes('npm ci');
+    yes('bun add sharp');
+    yes('pip install cairosvg');
+    yes('python -m pip install cairosvg --target output\\_pylibs');
+    yes('cd /d E:\\repo && npm install');
+    yes('winget install ImageMagick');
+  });
+
+  it('可执行文件探测无此命令（where / which / command -v）⇒ 环境层', () => {
+    yes('where magick');
+    yes('where magick & where inkscape & where rsvg-convert');
+    yes('which magick');
+    yes('command -v magick');
+  });
+
+  it('负向：普通命令 / 非安装脚本 / exit=0 / 无退出码 ⇒ 不得误判', () => {
+    no('rm -rf build');
+    no('node app.js');
+    no('npm run build');
+    no('npm test');
+    no('del output\\a.svg');
+    // 退出码来自最后一段 ⇒ 安装成功后的无关失败不背锅
+    no('npm i a & del b');
+    no('npm install', 0);
+    no('where magick', 0);
+    expect(isEnvironmentProbeFailure({ command: '' })).toBe(false);
+    expect(isEnvironmentProbeFailure({ command: 'npm install' })).toBe(false);
+  });
+
+  it('classifyTurn：env_unavailable 判 environment_blocked（2 轮即有可执行结论）', () => {
+    expect(
+      classifyTurn([{ status: 'error', failureKind: 'env_unavailable' }])
+    ).toBe('environment_blocked');
+    // 与真实工具失败混合时仍按失败分型（不洗白）
+    expect(
+      classifyTurn([
+        { status: 'error', failureKind: 'env_unavailable' },
         { status: 'error', failureKind: 'tool_error' },
       ])
     ).toBe('invalid');

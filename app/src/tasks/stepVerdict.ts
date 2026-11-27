@@ -31,6 +31,16 @@
  *
  * 无标记 ⇒ `step_unverified`（**不**臆测为达成；由调用方按"未证实"如实处理）。
  *
+ * ## 2026-11-27 补充：**终止事实优先于自述标记**（真机 `session_mwz477wj251057474e`）
+ *
+ * 该轮 PDCA 的 step_2 收尾于 `io_loop`、step_3 收尾于 `aborted`，但都只有普通文本
+ * （step_3 甚至为空）⇒ 无标记 ⇒ unverified ⇒ 仍被记为 completed，最终对用户播报
+ * 「✅ 3/3 步完成」，而 step_3 要交付的 `final_response.md` 根本不存在。
+ *
+ * 现口径：`PlanDrivenLoop` 先判 `isNonConvergedTermination()`（与 LRO 经典链
+ * `lro/stepExecution.ts` 同源）——**未收敛的步骤一律不算完成**，即便正文自报 `step_done`；
+ * 空正文也不再兜底成字面量「完成」。
+ *
  * ## 为什么取值带 `step_` 前缀
  *
  * `done` / `blocked` / `partial` 是**跨域通用词**，若直接作为本词汇表取值登记进
@@ -106,4 +116,52 @@ export function parseStepVerdict(
  */
 export function isGoalAchieved(verdict: StepVerdict): boolean {
   return verdict === STEP_VERDICT_DONE;
+}
+
+/** `resolveStepVerdict` 的返回：统一"结论 + 原因 + 落盘说明"三件套 */
+export interface ResolvedStepVerdict {
+  verdict: StepVerdict;
+  reason?: string;
+  /** 写入 plan step.error / StepResult.error 的说明文本 */
+  note: string;
+}
+
+/**
+ * 解析本步结论（**含终止事实对自述的强制覆盖**）。
+ *
+ * 优先级：审批暂停 > 非收敛终止 > 文本标记。
+ * 2026-11-27（真机 `session_mwz477wj251057474e`）：step_2 收尾于 `io_loop`、step_3 收尾于
+ * `aborted`，却因无 `[STEP_STATUS]` 标记（或空正文）被记为 completed ⇒ 播报「3/3 步完成」，
+ * 而最终答复文件根本不存在。未收敛的收尾**不得**被自述标记洗成达成。
+ */
+export function resolveStepVerdict(input: {
+  stepText: string;
+  /** `terminationReason === 'awaiting_approval'`（暂停，不是失败也不是完成） */
+  pausedForApproval?: boolean;
+  /** 非收敛终止原因（`io_loop` / `aborted` / `max_turns` …）；缺省 ⇒ 按文本标记 */
+  nonConvergedReason?: string;
+  turnCount?: number;
+}): ResolvedStepVerdict {
+  if (input.pausedForApproval) {
+    const reason = '等待工具审批：批准后会自动续跑（本轮不计完成）';
+    return {
+      verdict: STEP_VERDICT_BLOCKED,
+      reason,
+      note: `[STEP_BLOCKED] ${reason}`,
+    };
+  }
+  if (input.nonConvergedReason) {
+    const reason =
+      `[NON_CONVERGED:${input.nonConvergedReason}] ` +
+      `步骤未在预算内收敛（turns=${input.turnCount ?? 0}）`;
+    return { verdict: STEP_VERDICT_BLOCKED, reason, note: reason };
+  }
+  const parsed = parseStepVerdict(input.stepText);
+  const note =
+    parsed.verdict === STEP_VERDICT_BLOCKED
+      ? `[STEP_BLOCKED] ${parsed.reason ?? '模型自述本步受阻'}`
+      : parsed.verdict === STEP_VERDICT_PARTIAL
+        ? '[STEP_PARTIAL] 本步仅部分达成'
+        : '';
+  return { verdict: parsed.verdict, reason: parsed.reason, note };
 }

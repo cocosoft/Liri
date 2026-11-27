@@ -85,6 +85,7 @@ export interface ToolResultEntry {
 | 审批 `ask` 但 Inbox 不可用 | `permission_denied`（附 `reason: 'inbox_unavailable'` 到 decision.context） | `PermissionChecker.ts:693-699` |
 | `bashSecurityGate` / PowerShell 允许列表 / PathGuard 跳过 | `safety_blocked` | 各 gate 返回结构化 `reason`（已有 `security_analyzer_deny` 等枚举） |
 | 沙箱/依赖探测失败（如 `code_run` failClosed） | `env_unavailable` | 现有 `status:'security-rejected'` 分支 |
+| `bash` **依赖安装失败**（npm/pnpm/yarn/bun/pip/… `install`）或**可执行文件探测无此命令**（`where`/`which`/`command -v` 非零退出） | `env_unavailable` | `app/src/tools/bash/exitSemantics.ts#isEnvironmentProbeFailure`：按**命令族 + 非零退出**判定，不解析错误文案（CS02）。2026-11-27 真机 `session_mwz477wj251057474e`：为把已写好的 SVG 转 PNG，连续 `npm install` → `where magick…` → `pip install` 失败被计 invalid，3 轮即 `circuit_breaker` |
 | 工具 execute 抛错 | `tool_error` | 兜底 |
 
 > 关键：**不解析 `error` 文本**。文本只用于展示，分类走类型。

@@ -22,6 +22,7 @@ import { join } from 'node:path';
 import {
   isGoalAchieved,
   parseStepVerdict,
+  resolveStepVerdict,
   STEP_VERDICT_DONE,
   STEP_VERDICTS,
 } from '../../src/tasks/stepVerdict';
@@ -86,18 +87,56 @@ describe('parseStepVerdict — 只读结构化标记（不做关键词匹配）'
   });
 });
 
+describe('resolveStepVerdict — 优先级：暂停 > 非收敛 > 文本标记', () => {
+  it('非收敛终止覆盖自述 step_done', () => {
+    const r = resolveStepVerdict({
+      stepText: '做完了\n[STEP_STATUS: step_done]',
+      nonConvergedReason: 'io_loop',
+      turnCount: 7,
+    });
+    expect(r.verdict).toBe('step_blocked');
+    expect(r.note).toContain('[NON_CONVERGED:io_loop]');
+    expect(r.note).toContain('turns=7');
+  });
+
+  it('暂停（awaiting_approval）优先，且不改写为完成', () => {
+    const r = resolveStepVerdict({
+      stepText: '[STEP_STATUS: step_done]',
+      pausedForApproval: true,
+    });
+    expect(r.verdict).toBe('step_blocked');
+    expect(r.note).toContain('等待工具审批');
+  });
+
+  it('无终止原因 ⇒ 沿用文本标记与既有说明文案', () => {
+    const done = resolveStepVerdict({ stepText: '[STEP_STATUS: step_done]' });
+    expect(done.verdict).toBe('step_done');
+    expect(done.note).toBe('');
+    const blocked = resolveStepVerdict({
+      stepText: '[STEP_STATUS: step_blocked] [STEP_BLOCKED: 缺信息]',
+    });
+    expect(blocked.note).toBe('[STEP_BLOCKED] 缺信息');
+  });
+});
+
 /** 构造走分解路径的最小 PDL（每个步骤返回固定产出文本） */
 function makeLoop(options: {
   sessionId: string;
   subTasks: Array<{ id: string; description: string }>;
   stepText: string;
+  /** 每步 runCollect 的终止原因（默认 'stop'；用于非收敛终止回归） */
+  terminationReason?: string;
   onRun?: () => void;
 }): PlanDrivenLoop {
   const loop = {
     reset: () => {},
     runCollect: async () => {
       options.onRun?.();
-      return { totalTokens: 5, turnCount: 2, terminationReason: 'stop' };
+      return {
+        totalTokens: 5,
+        turnCount: 2,
+        terminationReason: options.terminationReason ?? 'stop',
+      };
     },
     getLastAssistantText: () => options.stepText,
   } as unknown as TAORLoop;
@@ -225,6 +264,65 @@ describe('PDL 目标达成判定（假成功防护）', () => {
       expect(result.completedSteps).toBe(0);
       // 未执行的 2 步如实出现在汇总里（不粉饰、也不混入"失败"）
       expect(result.summary).toContain('2 步骤因连续受阻提前终止');
+    });
+  });
+});
+
+/**
+ * P0-1（2026-11-27，真机 `session_mwz477wj251057474e`）：**终止事实优先于模型自述**。
+ *
+ * 该轮 step_2 收尾于 `io_loop`、step_3 收尾于 `aborted`，但两者都被记为 completed，
+ * 最终播报「✅ 3/3 步完成」——而 step_3 要交付的 `final_response.md` 根本不存在。
+ * 根因：PDL 只看 `[STEP_STATUS]` 自述标记，不看终止原因（LRO 经典链早已按此落 failed）。
+ */
+describe('PDL 非收敛终止（假完成防护·2026-11-27）', () => {
+  it('io_loop 的步骤即便自报 step_done 也不得计完成', async () => {
+    await withIsolatedDataDir(async () => {
+      const pdl = makeLoop({
+        sessionId: 's-nonconverged-io-loop',
+        subTasks: [
+          { id: 'step-1', description: '步骤A' },
+          { id: 'step-2', description: '步骤B' },
+        ],
+        stepText: '已经写完并交付。\n[STEP_STATUS: step_done]',
+        terminationReason: 'io_loop',
+      });
+
+      const result = await pdl.run(
+        '这是一个足够长的复杂任务描述，用于强制走分解路径而不是快速路径'
+      );
+
+      expect(result.completedSteps).toBe(0);
+      expect(result.failedSteps).toBe(2);
+      expect(result.stepResults.every((s) => s.state === 'failed')).toBe(true);
+      expect(result.stepResults[0]?.error).toContain('[NON_CONVERGED:io_loop]');
+      // 汇总不得宣称"执行完成"
+      expect(result.summary).not.toContain('执行完成');
+    });
+  });
+
+  it('aborted 且无可见正文 ⇒ failed，不再写「完成」占位', async () => {
+    await withIsolatedDataDir(async () => {
+      const pdl = makeLoop({
+        sessionId: 's-nonconverged-aborted',
+        // 用两步走分解路径（单步会被快速路径短路，不产生 step 终态）
+        subTasks: [
+          { id: 'step-1', description: '步骤A' },
+          { id: 'step-2', description: '步骤B' },
+        ],
+        stepText: '',
+        terminationReason: 'aborted',
+      });
+
+      const result = await pdl.run(
+        '这是一个足够长的复杂任务描述，用于强制走分解路径而不是快速路径'
+      );
+
+      expect(result.completedSteps).toBe(0);
+      expect(result.failedSteps).toBe(2);
+      expect(result.stepResults[0]?.error).toContain('[NON_CONVERGED:aborted]');
+      // 占位文案不得再宣布成功
+      expect(result.stepResults[0]?.output ?? '').not.toContain('完成');
     });
   });
 });

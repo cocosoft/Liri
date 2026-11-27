@@ -55,7 +55,7 @@ Orchestrator 只负责驱动循环、执行工具、感知结果，推理决策�
 
 | 判据 | 结论 | 生效档位 | 复用 |
 |---|---|---|---|
-| 写类工具（`file_write` / `file_edit` / `file_convert` / `write_project_file` / 生成类 `pdf`·`canvas`·`image`·`music`·`video` 的输出路径）：目标路径命中受保护清单（shell rc、`/etc` 敏感文件、`~/.ssh`/`~/.aws`/`~/.kube`/`~/.gnupg`、Windows SAM/hosts/Tasks…） | **deny**（先于一切规则，含 allow 规则与 bypass） | 五档一致 | `security/files/ProtectedPaths`（`isWriteProtected`） |
+| 写类工具（`file_write` / `file_edit` / `file_convert` / `write_project_file` / 生成类 `pdf`·`canvas`·`image`·`music`·`video` 的输出路径 / `notebook` 的 `path`）：目标路径命中受保护清单（shell rc、`/etc` 敏感文件、`~/.ssh`/`~/.aws`/`~/.kube`/`~/.gnupg`、Windows SAM/hosts/Tasks…） | **deny**（先于一切规则，含 allow 规则与 bypass） | 五档一致 | `security/files/ProtectedPaths`（`isWriteProtected`） |
 | 写类工具：目标路径在**已知工作区根之外**（且不在受保护清单） | **ask**（需显式批准） | `default` / `auto` | `environment/paths` 的 `isPathWithin` |
 | 读类工具（`file_read` / `glob` / `grep` / `read_project_file` / `code_analysis` / `lsp`）：读向**凭据 / 密钥面**（`~/.ssh`、`~/.gnupg`、`~/.aws`、`~/.kube`、`~/.config/gcloud`、`/etc/shadow`、`/etc/sudoers`、Windows SAM/SECURITY/SYSTEM） | **deny**（先于一切规则） | 五档一致 | 同表筛选（`isReadProtected`） |
 | 读类工具：工作区外读取 | **不判**（不 ask） | — | — |

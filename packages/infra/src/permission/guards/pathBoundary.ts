@@ -47,6 +47,9 @@ export const WRITE_PATH_GATED_TOOLS: ReadonlySet<string> = new Set([
   'image',
   'music',
   'video',
+  // 2026-11-27：`notebook` 的 create/save/export 会把 `.ipynb` 写到 `path` 指定位置
+  // （执行面已由 `riskClassFor(action=execute*)='shell'` 单独处理）。
+  'notebook',
 ]);
 
 /**

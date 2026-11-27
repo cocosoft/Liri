@@ -94,6 +94,21 @@ describe('D4 判定单元：生成类工具的输出路径同样过写闸（2026
       })
     ).toBeNull();
   });
+
+  it('notebook 的 path（create/save/export 落点）同样过写闸', () => {
+    expect(
+      evaluateProtectedWritePath('notebook', {
+        action: 'save',
+        path: join(homedir(), '.ssh', 'x.ipynb'),
+      })
+    ).not.toBeNull();
+    expect(
+      evaluateProtectedWritePath('notebook', {
+        action: 'save',
+        path: join(tmpdir(), 'ok.ipynb'),
+      })
+    ).toBeNull();
+  });
 });
 
 describe('D4 判定单元：evaluateOutOfWorkspaceWrite', () => {

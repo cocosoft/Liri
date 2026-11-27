@@ -493,6 +493,8 @@ F3–F10 仍待办 ⇒ 本节原「本计划无剩余待办」表述已按事实
 | ID | 问题 |
 |---|---|
 | — | F1–F30 已全部处理（F7/F8/F9 取证为非入口/未接线，接线前必须补授权；其余已修复） |
+| SG-1 | **`notebook` 的执行面未落沙箱**（2026-11-27 取证）：`executeCell` / `executeAllCells` 经 `NotebookToolImpl` → REPL 的 `spawn(command, args, {cwd, env})` **不经过** Landlock / Seatbelt / Windows 沙箱；工具却声明 `sandboxLevel='execution'`（与 bash / code_run 同档）。审批面**无缺口**（`riskClassFor(action=execute*)` 已返回 `shell`，执行单元格按 shell 风险审批）；缺的是「批准后仍应受写隔离」。重开条件：需要让 REPL 子进程进沙箱时，按 bash 的 `bashLandlockExec` 同口径接线（三平台分别验证），并补 `verify:sandbox-macos` / Linux 负向断言 |
+| SG-2 | `notebook` 的 `path`（create/save/export 落点）已于 2026-11-27 纳入权限层写闸（`WRITE_PATH_GATED_TOOLS`），受保护路径 deny × 五档 |
 
 ### 13.3 G9 结论订正（如实）
 

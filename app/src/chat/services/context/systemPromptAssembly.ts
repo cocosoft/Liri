@@ -153,6 +153,19 @@ export function listTopLevelDirs(root: string, limit = 24): string[] {
  *
  * 空/缺失工作区 ⇒ 空串 ⇒ 不注入（裸会话的 cwd 由运行形态决定，不给出不实基准）。
  */
+/**
+ * P2-2（2026-11-28，真机 `session_mwz477wj251057474e`）：会话**轮数** = 用户轮次。
+ *
+ * 原实现把 `session.messages.length`（含 assistant/tool 等内部消息）当轮数注入
+ * `sessionContext` 段 —— 该真机第 8 轮注入了「当前会话已进行 69 轮」，模型据此误判
+ * 会话规模（真实的用户轮次是 8）。此处只数 `role==='user'`。
+ */
+export function countSessionTurns(
+  messages: ReadonlyArray<{ role?: string }>
+): number {
+  return messages.filter((m) => m.role === 'user').length;
+}
+
 export function buildWorkspaceRootSection(
   workspaceRoot?: string,
   topLevelDirs?: readonly string[]
@@ -221,7 +234,7 @@ export async function assembleContextualSystemPrompt(
   const isLocal = baseUrl ? isLocalLlmEndpoint(baseUrl) : false;
   const sessionContext: MemorySessionContext = {
     sessionId: session.id,
-    turnCount: session.messages.length,
+    turnCount: countSessionTurns(session.messages),
     duration: Date.now() - (session.createdAt?.getTime() ?? Date.now()),
     startedAt: session.createdAt?.getTime() ?? Date.now(),
     tags: session.metadata?.tags,

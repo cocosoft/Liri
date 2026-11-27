@@ -256,4 +256,11 @@ SG-1 把 REPL / notebook 执行面接进 Low IL 后，真机冒烟暴露并修�
 现剪除这类条目（`entries` 与 `writeOwners` 两侧），失败的条目仍保留重试。
 取证：`bashWindowsSandbox.test.ts` 新增用例 + 真机种入不存在目录的条目 ⇒ 清理后两侧归零、零 icacls。
 
+**授权窗口按执行（C-3，2026-11-27，真机 A/B）**：REPL 原先把可写目录在**整个会话期**保持在 Low。
+取证：会话持权期间用 `win-sandbox-run.exe` 起 Low IL 进程写 `~/.pyapp/output` ⇒ **成功**（exit 0、文件生成）；
+`stopREPL` 释放后同一写入被拒（exit 1、无文件）⇒ 空闲期的 Low 是可观测暴露面。
+现改为：`startREPL` 的授权只是**预热窗口**，`executeCode` 前 `acquire`、结束后 `release`（引用计数，
+并发执行只在归零时恢复）；取用失败 ⇒ 本次执行直接失败（不无授权裸跑）。
+复测：exec1 后 Low IL 写入**被拒**、exec2 仍能写工作区；`icacls` 断言执行后目录为 Medium。
+
 `verify-win-sandbox.ts` 的失败分支现已内置**只读诊断**（读上述注册表键与策略目录），把"为什么不可用"直接打在输出里。

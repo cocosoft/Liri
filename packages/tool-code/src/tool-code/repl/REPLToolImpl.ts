@@ -103,6 +103,31 @@ export class REPLToolImpl implements REPLTool {
       );
     }
 
+    // C-3（2026-11-27）：执行前取用写隔离授权（Windows Low IL）——
+    // 授权窗口只覆盖"本次执行"，空闲时段可写目录回到 Medium（真机实证见 SG-7 ⑤）。
+    try {
+      await session.sandbox?.acquire?.();
+    } catch (error) {
+      return {
+        success: false,
+        output: '',
+        error: error instanceof Error ? error.message : String(error),
+        executionTime: 0,
+      };
+    }
+    try {
+      return await this.executeInWindow(session, code);
+    } finally {
+      // 引用计数归零才真正恢复完整性标签（幂等；并发执行时不会互相踩）
+      await session.sandbox?.release?.();
+    }
+  }
+
+  /** 完成标记协议下的单次执行（原 `executeCode` 主体；授权窗口由调用方包裹） */
+  private executeInWindow(
+    session: REPLSession,
+    code: string
+  ): Promise<REPLResult> {
     const startTime = Date.now();
     const process = session.process;
     const stdin = session.stdin;
@@ -406,31 +431,30 @@ function resolveReplCommand(
 }
 
 /**
- * SG-1：把会话与"沙箱授权释放"绑定。
+ * SG-1 + C-3：把会话与"沙箱授权"绑定。
  *
- * - 进程自行退出（用户代码 `exit()` / 崩溃 / 超时被 kill）⇒ 立即释放，
- *   否则 Windows 的可写目录会一直停在 Low 完整性标签上；
- * - `stopREPL` 也会调用同一个函数 ⇒ 用一次性包装去重（release 必须只生效一次，
- *   引用计数由 `beginWindowsBashGrants` 维护，重复调用会把计数打穿）。
+ * - `acquire` / `release` 透传到 `session.sandbox`：**每次执行**取用/归还（C-3，2026-11-27），
+ *   使可写目录只在执行期间处于 Low 完整性标签（空闲时段回到 Medium）；
+ * - 进程自行退出（`exit()` / 崩溃 / 超时被 kill）⇒ 兜底归还一次，
+ *   否则残留的 Low 窗口会一直开着（幂等：无在飞执行时是 no-op）；
+ * - `stopREPL` 也调用同一个 release（引用计数在 `beginWindowsBashGrants` 内维护）。
  */
 export function attachReplSandboxRelease(
   session: Pick<REPLSession, 'process' | 'sandbox'>,
   plan: ReplSandboxPlan
 ): void {
   const mode = plan.mode === 'refuse' ? 'none' : plan.mode;
-  if (!plan.release) {
+  if (!plan.acquire && !plan.release) {
     session.sandbox = { mode };
     return;
   }
-  let released = false;
-  const release = async (): Promise<void> => {
-    if (released) return;
-    released = true;
-    await plan.release?.();
+  session.sandbox = {
+    mode,
+    ...(plan.acquire ? { acquire: plan.acquire } : {}),
+    ...(plan.release ? { release: plan.release } : {}),
   };
-  session.sandbox = { mode, release };
   session.process?.once('exit', () => {
-    void release();
+    void plan.release?.();
   });
 }
 

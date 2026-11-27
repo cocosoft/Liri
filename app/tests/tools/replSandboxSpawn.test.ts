@@ -468,6 +468,49 @@ describe('planReplSandboxSpawn：Windows Low IL', () => {
     }
   });
 
+  // C-3（2026-11-27）：授权窗口从"会话全程"收紧到"每次执行"
+  it('C-3：按执行取用/归还（预热窗口复用、归零后重取、并发只在归零时恢复）', async () => {
+    let begins = 0;
+    let releases = 0;
+    const p = await plan(
+      baseDeps({
+        platform: 'win32',
+        detectWin: () => ({ available: true, runnable: true }),
+        resolveWinProgram: () => ({
+          program: 'C:/Python/python.exe',
+          viaCmd: false,
+        }),
+        beginWinGrants: async () => {
+          begins += 1;
+          return {
+            ok: true,
+            failures: [],
+            release: async () => {
+              releases += 1;
+            },
+          };
+        },
+      })
+    );
+    expect(p.mode).toBe('windows-low-il');
+    expect(begins).toBe(1); // 启动时的预热窗口
+
+    await p.acquire!(); // 首次执行复用预热窗口
+    expect(begins).toBe(1);
+    await p.acquire!(); // 并发执行的第二个调用
+    await p.release!();
+    expect(releases).toBe(0); // 计数未归零 ⇒ 不恢复
+    await p.release!();
+    expect(releases).toBe(1);
+
+    await p.acquire!(); // 下一次执行 ⇒ 重新取用
+    expect(begins).toBe(2);
+    await p.release!();
+    expect(releases).toBe(2);
+    await p.release!(); // stop/exit 的兜底归还 ⇒ no-op
+    expect(releases).toBe(2);
+  });
+
   it('helper 的 --probe 未通过（runnable=false）⇒ 与缺失同口径', async () => {
     const p = await plan(
       baseDeps({
@@ -492,9 +535,10 @@ describe('planReplSandboxSpawn：不支持的平台', () => {
   });
 });
 
-describe('attachReplSandboxRelease：释放只生效一次', () => {
-  it('进程退出与 stopREPL 都调用 ⇒ 底层 release 只跑一次', async () => {
-    let calls = 0;
+describe('attachReplSandboxRelease：按执行取用/归还（C-3）', () => {
+  it('acquire/release 透传到会话；进程退出时兜底再归还一次', async () => {
+    let acquires = 0;
+    let releases = 0;
     const child = new EventEmitter();
     const session: Parameters<typeof attachReplSandboxRelease>[0] = {
       process: child as never,
@@ -506,18 +550,25 @@ describe('attachReplSandboxRelease：释放只生效一次', () => {
       env: {},
       mode: 'windows-low-il',
       reason: 'test',
+      acquire: async () => {
+        acquires += 1;
+      },
       release: async () => {
-        calls += 1;
+        releases += 1;
       },
     } as ReplSandboxPlan);
     expect(session.sandbox?.mode).toBe('windows-low-il');
 
+    // 一次执行的正常路径
+    await session.sandbox!.acquire!();
     await session.sandbox!.release!();
-    await session.sandbox!.release!();
+    expect(acquires).toBe(1);
+    expect(releases).toBe(1);
+
+    // 进程退出兜底（幂等由真实 release 的引用计数保证，这里只验证接线）
     child.emit('exit', 0);
     await Promise.resolve();
-
-    expect(calls).toBe(1);
+    expect(releases).toBe(2);
   });
 
   it('无 release（Linux/macOS）⇒ 仅记录 mode', () => {

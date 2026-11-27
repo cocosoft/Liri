@@ -180,6 +180,14 @@ export interface REPLSession {
   sandbox?: {
     /** `refuse` 不会落到会话上（启动即抛错） */
     mode: Exclude<ReplSandboxPlanMode, 'refuse'>;
+    /**
+     * C-3（2026-11-27）：执行前取用写隔离授权（Windows Low IL；幂等）。
+     * 失败 ⇒ 调用方让本次执行失败（不得无授权运行）。
+     */
+    acquire?: () => Promise<void>;
+    /**
+     * 归还写隔离授权：`executeCode` 每次执行结束、`stopREPL`、子进程退出时调用（幂等）。
+     */
     release?: () => Promise<void>;
   };
 

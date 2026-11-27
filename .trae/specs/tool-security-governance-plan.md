@@ -506,9 +506,11 @@ F3–F10 仍待办 ⇒ 本节原「本计划无剩余待办」表述已按事实
 **C-2 补（2026-11-27，追加取证）**：真机装 `ts-node@10.9.2` + `typescript@5.9.3`（**必须钉 5.x**：ts-node 10 依赖 `ts.sys`，TS 6/7 已移除 ⇒ 最新版在 `readConfig` 崩）后实测：`ts-node -i` 在**管道 stdio** 下只回显 `> | | `、**永不执行**（同管道 `node -i` 正常；`ts-node/dist/repl.js` 为 `terminal: stdout.isTTY`）⇒ 「真实 ts-node 的 REPL e2e」不可实现，用例未入库（跳过位点也未登记）。该取证顺带暴露并修复一个生产缺陷：`where npx` 首行是**无扩展名**的 POSIX 脚本（`…\nodejs\npx`），旧解析只看首行 ⇒ typescript REPL **恒降级** `windows-unresolvable-command`；现按行挑第一个可分类项（`pickWinProgramFromWhereOutput` + 单测）。
 **C-2 收尾（2026-11-27，按用户裁定）**：`typescript` 语言**移除** —— `resolveReplCommand` 改为抛可操作错误
 （指向 `language="javascript"` 或"写 .ts 后用 bash 跑 `npx ts-node <file>`"），`getSupportedLanguages()` 同步摘除；
-离线 fixture 用例撤掉，改为锁住"明确拒绝 + 可操作替代"（`repl.integration.test.ts` 2 项）。⑤ **C-3 Windows 会话存续期可写目录保持 Low**（崩溃残留靠启动台账清理）—— 设计取舍（与 bash 同口径）；
-   **启动清理已修（2026-11-27）**：对"目录已消失"的台账条目改为**剪除**（原先只 `continue` ⇒ 永久残留、
-   "台账归零"巡检恒假；真机种入验证）。会话期授权策略**不变**；**触发**：出现"Low 窗口期被其他低完整性进程越权写"的实证，再改为按需授权 |
+离线 fixture 用例撤掉，改为锁住"明确拒绝 + 可操作替代"（`repl.integration.test.ts` 2 项）。⑤ **C-3 已修复（2026-11-27，真机 A/B 触发）**：REPL 原先在整个会话期把可写目录留在 Low。
+取证：持权期间用 `win-sandbox-run.exe` 起 Low IL 进程写 `~/.pyapp/output` ⇒ **成功**；`stopREPL` 释放后 ⇒ 被拒。
+现改为**按执行授权**（启动授权仅作预热窗口；`executeCode` 前 `acquire` / 结束后 `release`，引用计数，
+取用失败即本次执行失败）。同批修掉"目录已消失的台账条目永不清理"。取证：`replSandboxSpawn.test.ts`（C-3 用例）、
+`repl.integration.test.ts`（执行后目录为 Medium）、`bashWindowsSandbox.test.ts`（台账剪枝） |
 
 ### 13.3 G9 结论订正（如实）
 

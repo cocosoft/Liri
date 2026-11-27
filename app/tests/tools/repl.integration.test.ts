@@ -54,7 +54,17 @@ describe('REPLToolImpl 真实 spawn（P3-1 完成标记协议）', () => {
     // `stopREPL` 只把会话置 STOPPED（保留在进程级单例里），不在本文件清理 ⇒ 后续文件的
     // 会话计数会被带偏（`notebook.test.ts` 的「无会话时新建」实测 1 → 2）。
     replSessionManager.clearSessions();
-    rmSync(testCwd, { recursive: true, force: true });
+    try {
+      // 子进程刚被 kill，目录句柄可能短暂未释放（EBUSY）⇒ 重试；仍失败视为环境噪声
+      rmSync(testCwd, {
+        recursive: true,
+        force: true,
+        maxRetries: 5,
+        retryDelay: 200,
+      });
+    } catch {
+      // @ignore-catch 临时目录清理失败不影响断言
+    }
   });
 
   test.skipIf(!pythonAvailable)(
@@ -144,6 +154,13 @@ describe('REPLToolImpl 真实 spawn（P3-1 完成标记协议）', () => {
       );
       expect(denied.success).toBe(false);
       expect(denied.error).toBeTruthy();
+
+      // C-3（2026-11-27）：写隔离授权只覆盖**执行期** —— 执行结束后可写目录必须回到 Medium
+      //（真机实证：持权期间任意 Low IL 进程可写受管目录，释放后被拒）
+      if (process.platform === 'win32') {
+        const icacls = spawnSync('icacls', [testCwd], { encoding: 'utf8' });
+        expect(icacls.stdout).toContain('Medium Mandatory Level');
+      }
     },
     15000
   );

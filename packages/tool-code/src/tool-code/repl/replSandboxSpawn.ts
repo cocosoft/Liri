@@ -113,7 +113,14 @@ export interface ReplSandboxPlan {
   /** `mode='refuse'` 时的可操作错误文案 */
   message?: string;
   /**
-   * Windows 会话级授权释放（`stopREPL` / 子进程退出时调用，必须幂等）。
+   * C-3（2026-11-27）：**每次执行前**取用写隔离授权（Windows Low IL；幂等，带引用计数）。
+   * 失败 ⇒ 抛可操作错误（调用方必须让本次执行失败，不得无授权运行）。其余平台为 `undefined`。
+   */
+  acquire?: () => Promise<void>;
+  /**
+   * 归还写隔离授权（`executeCode` 每次执行结束 / `stopREPL` / 子进程退出时调用，必须幂等）。
+   *
+   * C-3 前它是"会话级一次性释放"；现在按执行归还（引用计数归零才真正恢复标签）。
    * 其余平台为 `undefined`。
    */
   release?: () => Promise<void>;
@@ -543,21 +550,62 @@ export async function planReplSandboxSpawn(
       cwd: input.cwd,
       extraWritablePaths,
     });
-    const grants = await (deps.beginWinGrants ?? beginWindowsBashGrants)(
-      writableDirs
-    );
-    if (!grants.ok) {
-      await grants.release();
+    const beginGrants = deps.beginWinGrants ?? beginWindowsBashGrants;
+    const initial = await beginGrants(writableDirs);
+    if (!initial.ok) {
+      await initial.release();
       cleanupWrapper?.();
       return unavailable(
         input,
         'windows-grant-failed',
-        `无法为可写目录临时降级完整性标签（${grants.failures
+        `无法为可写目录临时降级完整性标签（${initial.failures
           .map((failure) => `${failure.dir}: ${failure.error}`)
           .join('; ')}）`,
         config.failClosed
       );
     }
+
+    /**
+     * C-3（2026-11-27）：**授权窗口从"会话全程"收紧到"每次执行"**。
+     *
+     * 真机实证（`bin/win-sandbox-run.exe` 起 Low IL 进程直接写受管目录）：
+     * 会话持权期间**任意 Low IL 进程**都能成功写入 `~/.pyapp/output`，`stopREPL` 释放后再写被拒
+     * ⇒ 空闲时段的 Low 窗口是可观测的暴露面。现在：`executeCode` 执行前 `acquire`、
+     * 结束后 `release`；启动时那一次授权作为"预热窗口"，首次执行结束即归还。
+     *
+     * - `depth`：并发执行的引用计数（同一会话可能被并发调用）⇒ 只在归零时真正恢复标签；
+     * - 失败语义：取用失败 ⇒ 抛可操作错误（**不**在无授权下跑代码 —— 子进程已是 Low IL，
+     *   无授权时写入必被拒，静默跑只会得到一堆 EACCES）；
+     * - `cleanupWrapper`：包装 `.bat` 只在 spawn 时被读取 ⇒ 首次归还窗口时即可删除。
+     */
+    let active: WindowsGrantSessionLike | null = initial;
+    let depth = 0;
+    const acquire = async (): Promise<void> => {
+      depth += 1;
+      if (depth > 1 || active) return;
+      const session = await beginGrants(writableDirs);
+      if (!session.ok) {
+        depth = 0;
+        await session.release();
+        const detail = session.failures
+          .map((failure) => `${failure.dir}: ${failure.error}`)
+          .join('; ');
+        throw new AppError(
+          `REPL 执行面无法为本次执行施加写隔离（可写目录降级失败：${detail}）。子进程以 Low IL 运行，无授权时会话写入必被拒，故本次执行已拒绝。`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH
+        );
+      }
+      active = session;
+    };
+    const release = async (): Promise<void> => {
+      if (depth > 0) depth -= 1;
+      if (depth > 0) return;
+      const current = active;
+      active = null;
+      if (current) await current.release();
+      cleanupWrapper?.();
+    };
 
     const helperPath =
       deps.winHelperPath ?? resolveWinSandboxHelperPath({ platform: 'win32' });
@@ -572,10 +620,8 @@ export async function planReplSandboxSpawn(
       }),
       mode: 'windows-low-il',
       reason: 'windows-low-il',
-      release: async () => {
-        await grants.release();
-        cleanupWrapper?.();
-      },
+      acquire,
+      release,
     };
   }
 

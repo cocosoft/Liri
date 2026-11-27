@@ -91,18 +91,23 @@ function SandboxPage() {
     : "rounded-lg border border-gray-200 bg-white p-6";
 
   /**
-   * P1-1（2026-10-27）：无隔离证据时（`runtimeIsolation === 'none'`，如 Windows 桌面）
-   * 权限级别只进 `PERMISSION_RANK`，豁免链在 S1 已先拒 ⇒ 级别对实际行为零影响。
-   * 因此**诚实降级**：控件禁用 + 说明，不虚构"配了就有用"。
-   */
-  const levelInactive = sandboxConfig?.runtimeIsolation === "none";
-
-  /**
    * A5-①（2026-11-05）：把「当前到底受不受内核级约束」摊开给用户看。
    * 全部取自后端 `/v1/sandbox/status` 的 `posture`（语言中立编码 + 布尔事实），
    * 不在前端自行推断，避免与真实判定漂移。
    */
   const posture = status?.posture ?? null;
+
+  /**
+   * D-1 拍板（2026-11-27）：**权限级别只影响"命令类"豁免**，其判据是
+   * `posture.shellWriteIsolated`（Windows Low IL / macOS Seatbelt / Linux Landlock，
+   * 与执行门控同源），不再是 `runtimeIsolation`（那只表达 Landlock 一条路）。
+   *
+   * 文件类**不**因写隔离豁免（文件写走主进程 `node:fs`，子进程隔离覆盖不到）
+   * ⇒ 所以这里仅按写隔离决定控件可用性，并在文案里说明两类的差异。
+   */
+  const levelInactive = posture
+    ? posture.shellWriteIsolated !== true
+    : sandboxConfig?.runtimeIsolation === "none";
   /**
    * 2026-11-27（A 组）：写隔离后端的人类可读名（后端是语言中立代码值，展示层负责可读化）。
    * 不在前端推断"有没有隔离"，只翻译后端名。

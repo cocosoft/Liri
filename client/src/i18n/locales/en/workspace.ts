@@ -171,7 +171,8 @@ const enWorkspace = {
     // 2026-11-27 (group A): state which backend actually enforces write isolation
     postureWriteIsolationBackend: "Write isolation backend: {{backend}}",
     // 2026-11-27 (group A): capability probe details (reason code when unavailable)
-    postureCapabilityAvailable: "Platform sandbox capability: probed and available",
+    postureCapabilityAvailable:
+      "Platform sandbox capability: probed and available",
     postureCapabilityUnavailable:
       "Platform sandbox capability: unavailable (reason code {{reasonCode}})",
     postureGuardOn: "Interpreter confirmation (BASH_INTERPRETER_GUARD): on",
@@ -205,7 +206,7 @@ const enWorkspace = {
     permissionHint:
       "Determines the authorization scope for new sandbox workspaces: Full = read/write + execute, Standard = read/write (default), Read-only = read only. Existing workspaces are unaffected.",
     permissionLevelInactive:
-      "No isolation backend is available on this platform (no Landlock / Seatbelt / Low-IL evidence), so the permission level does not affect enforcement and is disabled.",
+      "No command write isolation is effective on this machine (no Landlock / Seatbelt / Low-IL evidence), so the permission level is not used for command exemption and is disabled. Note: the level only affects command-class exemption; file-class tools still require an isolated workspace (write isolation does not cover main-process file IO).",
     runtimeStatus: "Runtime Status",
     enabledStatus: "Enabled Status",
     notEnabled: "Not enabled",

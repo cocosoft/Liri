@@ -164,7 +164,8 @@ const zhWorkspace = {
     postureWriteIsolationBackend: "写隔离后端：{{backend}}",
     // 2026-11-27（A 组）：能力探测细节（不可用时给出原因码，排障不用翻日志）
     postureCapabilityAvailable: "平台沙箱能力：已探测可用",
-    postureCapabilityUnavailable: "平台沙箱能力：不可用（原因码 {{reasonCode}}）",
+    postureCapabilityUnavailable:
+      "平台沙箱能力：不可用（原因码 {{reasonCode}}）",
     postureGuardOn: "解释器命令二次确认（BASH_INTERPRETER_GUARD）：已开启",
     postureGuardOff: "解释器命令二次确认（BASH_INTERPRETER_GUARD）：未开启",
     // P2-c（2026-11-07）：权限档 ≠ 沙箱 —— 前者管「要不要问」，后者管「跑起来能碰什么」
@@ -196,7 +197,7 @@ const zhWorkspace = {
     permissionHint:
       "决定新沙箱工作空间的授权范围：完整 = 读写 + 执行，标准 = 读写（默认）， 只读 = 仅可读。现有工作空间不受影响。",
     permissionLevelInactive:
-      "当前平台没有可用的隔离后端（无 Landlock / Seatbelt / Low IL 证据），权限级别不参与实际判定，已停用。",
+      "本机没有生效的命令写隔离（无 Landlock / Seatbelt / Low IL 证据），命令类豁免不使用权限级别，已停用。注：权限级别只影响「命令类」豁免；文件类仍要求隔离工作区（写隔离不覆盖主进程文件 IO）。",
     runtimeStatus: "运行时状态",
     enabledStatus: "启用状态",
     notEnabled: "未启用",

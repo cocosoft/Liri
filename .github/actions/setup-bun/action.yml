@@ -24,11 +24,14 @@ runs:
       uses: actions/cache@v4
       with:
         path: ${{ inputs.project }}/node_modules
+        # 只用**精确键**（锁文件哈希），不设 `restore-keys` 跨版本回退。
+        # 2026-11-27 实证：旧锁的 node_modules 被前缀回退恢复后，`bun install` 不会剔除
+        # 「已从依赖里移除」的包 ⇒ `lint:license` 扫到幽灵包 `msg.js@0.0.2`（无 license）
+        # 直接把 Static Checks 判红。宁可在锁变更时全量重装，也不接受跨锁混用。
         key: ${{ runner.os }}-bun-${{ hashFiles(format('{0}/bun.lock', inputs.project)) }}
-        restore-keys: |
-          ${{ runner.os }}-bun-
 
     - name: Install dependencies
       shell: bash
-      run: bun install
+      # 冻结安装：CI 必须按锁文件还原，不得联网"顺手"解析出新包（与缓存精确键同口径）。
+      run: bun install --frozen-lockfile
       working-directory: ${{ inputs.project }}

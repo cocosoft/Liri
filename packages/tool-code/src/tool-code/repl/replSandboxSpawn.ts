@@ -33,7 +33,9 @@
  *  - Windows：`win-sandbox-run.exe -- <解释器> <参数…>`（Low IL + Job Object），
  *    并在会话生命周期内把可写目录**临时**降为 Low 完整性标签，`stopREPL` / 进程退出时恢复；
  *    `.cmd/.bat`（如 `npx`）经 `cmd.exe /d /s /c` + **环境变量转交**命令文本
- *    （helper 的 argv 引号规则与 cmd 不兼容，见 `buildCmdTransferInvocation`）。
+ *    （helper 的 argv 引号规则与 cmd 不兼容，见 `buildCmdTransferInvocation`）；
+ *    参数含 `%` 时再套一层**临时批处理包装**（只有批处理文件里的 `%%` 才是字面 `%`），
+ *    包装文件随会话 `release` 删除（C-1，见 `writeCmdWrapper`）。
  *
  * **为什么能在包裹后保持"交互式 REPL"**：
  *  - `landlock-run`（`native/main.c`）在 `restrict_self` 成功后直接 `execvp(command)`；
@@ -53,7 +55,9 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   buildLandlockArgv,
   buildMacOSSandboxProfile,
@@ -267,21 +271,63 @@ export function quoteWindowsCommandLineArg(arg: string): string {
   return `${out}${'\\'.repeat(backslashes * 2)}"`;
 }
 
+/** `.cmd/.bat` 转交结果（`cleanup` 只在套了批处理包装时才存在） */
+interface CmdTransferInvocation {
+  program: string;
+  args: string[];
+  env: Record<string, string>;
+  cleanup?: () => void;
+}
+
+/** 批处理里把一个 `%` 写成 `%%`（cmd 对**引号内**的 `%VAR%` 同样展开，引号保护不了） */
+function escapeBatchPercent(text: string): string {
+  return text.replace(/%/g, '%%');
+}
+
 /**
- * 命令文本里**无法被 cmd 安全表达**的字符（命中 ⇒ 降级，不猜）。
+ * 生成包装批处理的内容（纯函数，供测试断言）。
  *
- * - `%`：`cmd` 会在引号**内**也做 `%VAR%` 展开（`buildWindowsBashInvocation` 还会走 `call`
- *   二次展开）⇒ 参数值会被改写甚至泄露环境变量；
- * - CR/LF：会截断命令文本（等价于注入一条新命令）。
- *
- * 注意 `& | < > ^` **不在**此列：它们只要在引号内就是字面量，而本函数对每个参数一律加引号
- *（见 `quoteWindowsCommandLineArg`）⇒ 已被引号保护。
+ * ⚠️ 末尾**不加 `call`** 启动目标：`call` 会对参数做第二遍 `%` 展开，把 `%%VAR%%`
+ * 解析出的字面 `%VAR%` 再展开一次 ⇒ 参数被改写。直接写（带引号的）路径属于控制转移，
+ * 目标 REPL 退出后本批处理随之结束，语义一致。
  */
-function findUnrepresentableChar(text: string): string | null {
-  if (text.includes('\r')) return '\\r';
-  if (text.includes('\n')) return '\\n';
-  if (text.includes('%')) return '%';
-  return null;
+export function buildCmdWrapperContent(
+  resolved: WinResolvedProgram,
+  args: string[]
+): string {
+  const line = [resolved.program, ...args]
+    .map((arg) => escapeBatchPercent(quoteWindowsCommandLineArg(arg)))
+    .join(' ');
+  return `@echo off\r\n${line}\r\n`;
+}
+
+/**
+ * 把命令文本写成受管临时目录下的 `.bat`，返回路径与删除动作。
+ *
+ * 为什么必须落到文件：`%` 在 cmd 命令行（**含引号内**）一定会被展开，而只有**批处理文件内**
+ * 的 `%%` 才是字面 `%`。包装文件路径由本函数生成（不含 `%`），命令行只放 `call "<wrapper>"`
+ * ⇒ 参数值原样交给目标程序。
+ */
+function writeCmdWrapper(content: string): {
+  path: string;
+  cleanup: () => void;
+} {
+  const wrapperPath = join(resolveTempDir(), `repl-cmd-${randomUUID()}.bat`);
+  writeFileSync(wrapperPath, content, 'utf8');
+  return {
+    path: wrapperPath,
+    cleanup: () => {
+      try {
+        rmSync(wrapperPath, { force: true });
+      } catch (error) {
+        // @ignore-catch 包装文件删不掉不影响已完成的执行（下次启动可再生成），不阻断 release
+        logger.warn('tools:repl:cmd-wrapper-remove-failed', {
+          path: wrapperPath,
+          error: String(error),
+        });
+      }
+    },
+  };
 }
 
 /**
@@ -290,22 +336,34 @@ function findUnrepresentableChar(text: string): string | null {
  * 为什么不能直接把命令文本当 argv：helper 的 `build_command_line` 会把含空格的参数整体加引号、
  * 并把内部 `"` 转义成 `\"`，而 **cmd.exe 不认反斜杠转义**（bash 侧真机实测过）。
  *
- * @returns `null` = 参数含 `%` / 换行（cmd 无法安全表达）⇒ 调用方降级
+ * @returns `null` = 程序路径/参数含换行（会截断命令文本），或含 `%` 但内容不是纯 ASCII
+ *   （包装文件由 cmd 按控制台代码页解码，无法保证逐字保真）⇒ 调用方降级
  */
 function buildCmdTransferInvocation(
   resolved: WinResolvedProgram,
   args: string[],
   env: NodeJS.ProcessEnv
-): { program: string; args: string[]; env: Record<string, string> } | null {
-  const unsafe =
-    findUnrepresentableChar(resolved.program) ??
-    args.map(findUnrepresentableChar).find(Boolean);
-  if (unsafe) return null;
+): CmdTransferInvocation | null {
+  const texts = [resolved.program, ...args];
+  // CR/LF 会截断命令文本（等价于注入一条新命令）⇒ 任何形态都无法安全表达
+  if (texts.some((text) => /[\r\n]/.test(text))) return null;
+
+  if (texts.some((text) => text.includes('%'))) {
+    const content = buildCmdWrapperContent(resolved, args);
+    // 包装文件按控制台代码页解码 ⇒ 非 ASCII 无法保证保真（降级，不猜）
+    if (/[^\x20-\x7E\r\n\t]/.test(content)) return null;
+    const wrapper = writeCmdWrapper(content);
+    const invocation = buildWindowsBashInvocation({
+      command: `call ${quoteWindowsCommandLineArg(wrapper.path)}`,
+      env,
+      envVarName: REPL_WINDOWS_CMD_ENV,
+    });
+    return { ...invocation, cleanup: wrapper.cleanup };
+  }
+
   return buildWindowsBashInvocation({
     // 每个参数一律按 CRT 规则加引号：既支持含空格/引号的值，也让 `& | < > ^` 落在引号内
-    command: [resolved.program, ...args]
-      .map(quoteWindowsCommandLineArg)
-      .join(' '),
+    command: texts.map(quoteWindowsCommandLineArg).join(' '),
     env,
     envVarName: REPL_WINDOWS_CMD_ENV,
   });
@@ -442,8 +500,10 @@ export async function planReplSandboxSpawn(
       TMPDIR: windowsTemp,
     };
 
-    // `.cmd/.bat`（如 `npx.cmd`）⇒ helper 经 `cmd.exe /d /s /c` 启动，命令文本走环境变量
+    // `.cmd/.bat`（如 `npx.cmd`）⇒ helper 经 `cmd.exe /d /s /c` 启动，命令文本走环境变量；
+    // 参数含 `%` 时再套一层临时批处理包装（见 `buildCmdTransferInvocation`）
     let target = { program: resolved.program, args: input.args };
+    let cleanupWrapper: (() => void) | undefined;
     if (resolved.viaCmd) {
       const transfer = buildCmdTransferInvocation(
         resolved,
@@ -454,12 +514,13 @@ export async function planReplSandboxSpawn(
         return unavailable(
           input,
           'windows-cmd-unsafe-args',
-          `命令 ${input.command} 需经 cmd.exe 转交，但程序路径/参数含 % 或换行（cmd 会改写或截断，无法安全表达）`,
+          `命令 ${input.command} 需经 cmd.exe 转交，但程序路径/参数含换行或非 ASCII 字符（cmd 会截断或按控制台代码页改写，无法安全表达）`,
           config.failClosed
         );
       }
       target = { program: transfer.program, args: transfer.args };
       Object.assign(childEnv, transfer.env);
+      cleanupWrapper = transfer.cleanup;
     }
 
     const writableDirs = buildShellManagedWritableDirs({
@@ -471,6 +532,7 @@ export async function planReplSandboxSpawn(
     );
     if (!grants.ok) {
       await grants.release();
+      cleanupWrapper?.();
       return unavailable(
         input,
         'windows-grant-failed',
@@ -494,7 +556,10 @@ export async function planReplSandboxSpawn(
       }),
       mode: 'windows-low-il',
       reason: 'windows-low-il',
-      release: grants.release,
+      release: async () => {
+        await grants.release();
+        cleanupWrapper?.();
+      },
     };
   }
 

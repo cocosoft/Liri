@@ -10,7 +10,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 import { EventEmitter } from 'node:events';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -386,7 +386,39 @@ describe('planReplSandboxSpawn：Windows Low IL', () => {
     expect(p.env.LIRI_REPL_CMD).toBe('"C:/x/run.cmd" "x\\"y" "C:\\dir\\\\"');
   });
 
-  it('`.cmd` 且参数含 `%` / 换行 ⇒ 降级（cmd 会改写或截断）', async () => {
+  it('`.cmd` 且参数含 `%` ⇒ 临时批处理包装（`%` 写成 `%%`），会话结束删除包装文件', async () => {
+    const p = await planReplSandboxSpawn({
+      command: 'npx',
+      args: ['--fmt=%s'],
+      cwd: process.cwd(),
+      env: { PATH: '/x' },
+      deps: baseDeps({
+        platform: 'win32',
+        detectWin: () => ({ available: true, runnable: true }),
+        resolveWinProgram: () => ({ program: 'C:/x/run.cmd', viaCmd: true }),
+        beginWinGrants: async () => ({
+          ok: true,
+          failures: [],
+          release: async () => {},
+        }),
+      }),
+    });
+    expect(p.mode).toBe('windows-low-il');
+    // 命令行只剩 `call "<wrapper>"`（wrapper 路径不含 `%`）⇒ cmd 的展开动不到参数
+    const commandText = p.env.LIRI_REPL_CMD ?? '';
+    const matched = /^call "(.+\.bat)"$/.exec(commandText);
+    expect(matched).not.toBeNull();
+    const wrapperPath = matched?.[1] ?? '';
+    // 包装文件内：`%` ⇒ `%%`（批处理里才是字面 `%`），目标程序仍按 CRT 规则加引号
+    expect(readFileSync(wrapperPath, 'utf8')).toBe(
+      '@echo off\r\n"C:/x/run.cmd" "--fmt=%%s"\r\n'
+    );
+    // 会话结束（release）⇒ 包装文件被删除
+    await p.release?.();
+    expect(existsSync(wrapperPath)).toBe(false);
+  });
+
+  it('`.cmd` 且参数含换行 / 非 ASCII + `%` ⇒ 降级（截断 / 代码页无法保真）', async () => {
     const planFor = (arg: string) =>
       planReplSandboxSpawn({
         command: 'npx',
@@ -404,7 +436,7 @@ describe('planReplSandboxSpawn：Windows Low IL', () => {
           }),
         }),
       });
-    for (const arg of ['--fmt=%s', 'a\nb']) {
+    for (const arg of ['a\nb', '--name=中文%s']) {
       const p = await planFor(arg);
       // 未授权前就拒绝转交 ⇒ 不会去改 ACL
       expect(p.mode).toBe('none');

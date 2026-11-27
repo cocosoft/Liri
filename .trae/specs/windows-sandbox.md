@@ -220,8 +220,14 @@ SG-1 把 REPL / notebook 执行面接进 Low IL 后，真机冒烟暴露并修�
    **环境变量转交**命令文本（复用 `buildWindowsBashInvocation`，变量名 `LIRI_REPL_CMD`）。
    **参数一律按 MSVCRT（`CommandLineToArgvW`）规则加引号**（`quoteWindowsCommandLineArg`）：
    含空格/引号的值可保真（`x"y` ⇒ `"x\"y"`，结尾反斜杠 `C:\dir\` ⇒ `"C:\dir\\"`），
-   且 `& | < > ^` 因落在引号内成为字面量。仅 `%`（cmd 会在引号内也做变量展开）与 **换行**
-   （会截断命令文本）仍如实降级（`windows-cmd-unsafe-args`）。
+   且 `& | < > ^` 因落在引号内成为字面量。仅 **换行**（会截断命令文本）仍如实降级
+   （`windows-cmd-unsafe-args`）。
+   **`%` 已补齐（C-1，2026-11-27）**：cmd 在引号内也会展开 `%VAR%`，而**只有批处理文件内**的
+   `%%` 才是字面 `%` ⇒ 参数含 `%` 时把命令文本写成受管临时目录（`resolveTempDir()`）下的
+   `repl-cmd-<uuid>.bat`（每个参数仍按 CRT 规则加引号后把 `%` 写成 `%%`），命令行只放
+   `call "<wrapper>"`（wrapper 路径不含 `%`）；包装文件随会话 `release` 删除。
+   包装行**不加 `call`** 启动目标：`call` 会做第二遍 `%` 展开，把字面 `%VAR%` 再次展开。
+   含非 ASCII 时仍降级（批处理按控制台代码页解码，UTF-8 内容无法保证逐字保真）。
    真机实测（cmd → 批处理 `%*` → node）：`"x\"y"` 与 `"x""y"` 都能让 node 拿到 `x"y`，`^"` 会丢引号
    ⇒ 取 CRT 规则（与 `spawn(..., windowsVerbatimArguments:false)` 同语义）。
 
@@ -230,5 +236,10 @@ SG-1 把 REPL / notebook 执行面接进 Low IL 后，真机冒烟暴露并修�
 **含引号参数冒烟（2026-11-27 补）**：`args=[a b, x"y, C:\dir\]` ⇒
 `LIRI_REPL_CMD="…\probe.cmd" "a b" "x\"y" "C:\dir\\"` ⇒ 批处理 `%*` 转交 node，
 `node-argv=["a b","x\"y","C:\\dir\\"]`、`exit=0`（逐字保真）。
+
+**含 `%` 参数冒烟（C-1，2026-11-27）**：真机 cmd 实测包装链 ——
+包装文件内 `"--fmt=%%s" "--p=%%%%x"` ⇒ 目标批处理 `%*` 得到 `"--fmt=%s" "--p=%%x"`；
+再经 `cmd /d /s /c call "<wrapper>"`（wrapper 路径**含空格**）且参数为 `%PATH%` / `100%`
+⇒ `"--p=%PATH%" "--q=100%"`，`exit=0`（字面保真，环境变量未被展开）。
 
 `verify-win-sandbox.ts` 的失败分支现已内置**只读诊断**（读上述注册表键与策略目录），把"为什么不可用"直接打在输出里。

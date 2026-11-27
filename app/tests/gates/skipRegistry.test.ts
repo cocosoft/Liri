@@ -206,7 +206,8 @@ const SKIP_REGISTRY: SkipEntry[] = [
     module: 'sandbox',
     severity: 'platform',
   },
-  ...Array.from({ length: 5 }, (_, i) => ({
+  // 2026-11-27（SG-1）：REPL 集成新增第 6 处条件 skip（沙箱双向断言同样依赖本地 python）
+  ...Array.from({ length: 6 }, (_, i) => ({
     file: 'app/tests/tools/repl.integration.test.ts',
     match: '!pythonAvailable',
     reason: `REPL 集成（第 ${i + 1} 处）—— 需本地 python`,

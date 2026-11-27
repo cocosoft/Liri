@@ -135,6 +135,11 @@ async function main(): Promise<void> {
   // ⑥ SG-1（2026-11-27）：REPL / notebook 的执行面（`NotebookToolImpl` → `REPLToolImpl`）
   //    也必须落在同一套 Seatbelt 里：可写工作区、不可写白名单外。
   //    用 `javascript`（node 一定存在）避免依赖 macOS runner 是否有 `python`。
+  //
+  //    ⚠️ 判定必须看**文件系统事实**，不能看 `result.success`：node 的 REPL 把抛出的异常
+  //    打到 **stdout**（`util.inspect`），而 `executeCode` 只用 stderr 判成败 ⇒ 越界写实际
+  //    被拒时 `success` 仍为 `true`（2026-11-27 CI 实证）。
+  const replWroteFile = join(allowDir, 'repl-ok.txt');
   const replDenied = join(denyDir, 'repl-denied.txt');
   try {
     const repl = new REPLToolImpl();
@@ -152,14 +157,15 @@ async function main(): Promise<void> {
         session,
         `require("fs").writeFileSync(${JSON.stringify(replDenied)}, "x")`
       );
+      const wroteOk = existsSync(replWroteFile);
+      const deniedLanded = existsSync(replDenied);
       results.push({
         name: 'REPL 执行面进沙箱（可写工作区、越界被拒）',
-        pass:
-          mode === 'sandbox-exec' &&
-          wrote.success &&
-          !denied.success &&
-          !existsSync(replDenied),
-        detail: `mode=${mode} 工作区写=${wrote.success} 越界写=${denied.success} 越界落盘=${existsSync(replDenied)}`,
+        pass: mode === 'sandbox-exec' && wroteOk && !deniedLanded,
+        detail:
+          `mode=${mode} 工作区落盘=${wroteOk} 越界落盘=${deniedLanded}` +
+          ` 越界输出=${(denied.output || denied.error || '—').trim().slice(0, 80)}` +
+          ` 工作区写=${wrote.success}`,
       });
     } finally {
       await repl.stopREPL(session);

@@ -656,10 +656,18 @@ export class MessageToEventMigrator {
     return String(fn?.name ?? tc.name ?? '');
   }
 
-  /** 提取 tool_call 参数（解析 JSON 字符串为对象） */
+  /**
+   * 提取 tool_call 参数（解析 JSON 字符串为对象）。
+   *
+   * **三种形状**：① OpenAI 嵌套 `{function:{arguments}}`；② 内部扁平 `{name,arguments}`
+   * （`ParsedToolCall` / TAOR 早期落盘形状）；③ 旧别名 `{args}`。
+   * 原实现只读 ①③ ⇒ 命中 ② 时静默返回 `{}`，事件侧工具参数空洞
+   * （真机 `session_mwpqutxtdcef00c938`：非流式 TAOR 轮 `tool_call=12 / argsEmpty=12`）。
+   * 与 `extractToolCallId` / `extractToolCallName` 的两形状兼容口径对齐。
+   */
   private extractToolCallArgs(tc: Record<string, unknown>): unknown {
     const fn = tc.function as { arguments?: string | unknown } | undefined;
-    const argsRaw = fn?.arguments ?? tc.args;
+    const argsRaw = fn?.arguments ?? tc.arguments ?? tc.args;
     if (typeof argsRaw === 'string') {
       try {
         return JSON.parse(argsRaw);

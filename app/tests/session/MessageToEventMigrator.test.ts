@@ -290,3 +290,97 @@ describe('shouldMigrateMessages：空文件不再进入迁移（告警噪声根�
     expect(shouldMigrateMessages({ ...base, messagesSize: -1 })).toBe(true);
   });
 });
+
+/**
+ * 非流式会话的 `assistant/tool_call` 事件丢 args（2026-11-27 修复）。
+ *
+ * 真机取证 `session_mwpqutxtdcef00c938`：TAOR 轮落盘的声明是内部扁平形状
+ * `{id,name,arguments}`，而 `extractToolCallArgs` 只认 OpenAI 嵌套形 / `args` 别名
+ * ⇒ 事件统一写成 `"args":{}`（`tool_call=12 / argsEmpty=12`），事件回放时工具参数空洞。
+ */
+describe('assistant/tool_call args 解码（扁平形状兼容）', () => {
+  const toolCallEvents = (events: Array<{ type: string; data: unknown }>) =>
+    events.filter((e) => e.type === 'assistant/tool_call');
+
+  const argsOfFirst = (message: Partial<Message>): unknown => {
+    const ev = toolCallEvents(convert(message).events)[0];
+    expect(ev).toBeDefined();
+    return (ev.data as Record<string, unknown>).args;
+  };
+
+  it('metadata.tool_calls 扁平形（arguments 为对象）→ args 原样落盘', () => {
+    expect(
+      argsOfFirst({
+        role: 'assistant',
+        content: '',
+        metadata: {
+          tool_calls: [
+            {
+              id: 'call_flat_obj',
+              name: 'glob',
+              arguments: { pattern: '*.ts', path: 'app/src/chat' },
+            },
+          ],
+        },
+      } as unknown as Partial<Message>)
+    ).toEqual({ pattern: '*.ts', path: 'app/src/chat' });
+  });
+
+  it('metadata.tool_calls 扁平形（arguments 为 JSON 字符串）→ 解析为对象', () => {
+    expect(
+      argsOfFirst({
+        role: 'assistant',
+        content: '',
+        metadata: {
+          tool_calls: [
+            { id: 'call_flat_str', name: 'bash', arguments: '{"cmd":"ls"}' },
+          ],
+        },
+      } as unknown as Partial<Message>)
+    ).toEqual({ cmd: 'ls' });
+  });
+
+  it('顶层 tool_calls 扁平形 → args 同样不丢（两位置口径一致）', () => {
+    expect(
+      argsOfFirst({
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          {
+            id: 'call_top_flat',
+            name: 'todo_write',
+            arguments: { action: 'write' },
+          },
+        ],
+      } as unknown as Partial<Message>)
+    ).toEqual({ action: 'write' });
+  });
+
+  it('OpenAI 嵌套形（function.arguments 为字符串）→ 保持既有解析（不回归）', () => {
+    expect(
+      argsOfFirst({
+        role: 'assistant',
+        content: '',
+        metadata: {
+          tool_calls: [
+            {
+              id: 'call_nested',
+              type: 'function',
+              function: { name: 'file_read', arguments: '{"path":"a.ts"}' },
+            },
+          ],
+        },
+      } as unknown as Partial<Message>)
+    ).toEqual({ path: 'a.ts' });
+  });
+
+  it('空参数声明 → args 为空对象（不因缺字段抛错）', () => {
+    expect(
+      argsOfFirst({
+        role: 'assistant',
+        content: '',
+        metadata: { tool_calls: [{ id: 'call_empty', name: 'noop' }] },
+      } as unknown as Partial<Message>)
+    ).toEqual({});
+  });
+});

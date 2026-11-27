@@ -193,17 +193,21 @@ describe('BashTool.execute catch 收尾（P3-2 外移前特征化）', () => {
     // 分类变了 ⇒ 不再同时记成通用执行错误
     expect(callsOf('bash: execute_error').length).toBe(0);
 
-    const where = await runWithExecError(
-      'where magick',
-      makeExecError({
-        message: 'Command failed: where magick',
-        code: 1,
-        stderr: '信息: 用提供的模式无法找到文件。',
-      }),
-      { bypassAsk: true }
-    );
-    expect(where.success).toBe(false);
-    expect(where.failureKind).toBe('env_unavailable');
+    // `where` 是 cmd 族命令：POSIX 上会先被安全门判 safety_blocked（与本分类无关）⇒ 仅 Windows 校验。
+    // 命令族判据本身已由 `expectedNonzeroExit.test.ts` 的纯函数用例跨平台覆盖。
+    if (process.platform === 'win32') {
+      const where = await runWithExecError(
+        'where magick',
+        makeExecError({
+          message: 'Command failed: where magick',
+          code: 1,
+          stderr: '信息: 用提供的模式无法找到文件。',
+        }),
+        { bypassAsk: true }
+      );
+      expect(where.success).toBe(false);
+      expect(where.failureKind).toBe('env_unavailable');
+    }
   });
 
   it('spawn ENOENT ⇒ 追加「cwd 不存在 / shell 缺失」双因提示', async () => {

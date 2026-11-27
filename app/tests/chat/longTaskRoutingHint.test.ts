@@ -73,7 +73,6 @@ function makeCoordinator(hints: string[]) {
     appendStreamEvent: async () => undefined,
     persistSessionMetadata: async () => {},
     recentUserText: () => '帮我做个超级玛丽两关',
-    lastAssistantText: () => '好的，我来做',
     notifyUser: (_sid, text) => {
       hints.push(text);
     },

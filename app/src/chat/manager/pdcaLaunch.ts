@@ -32,6 +32,8 @@ import type { LiriEvent, LiriEventData } from '@modules/session/types/events';
 
 import { hasResearchIntent } from '../taskIntent';
 import { shouldEscalateLongTask } from '../longTaskEscalation';
+// P2-1（2026-11-28）：升级描述只取**本轮**助手正文（结构判定，见 sessionAccessors 头注）
+import { lastAssistantTextInCurrentTurn } from './sessionAccessors';
 import { isDemandSession } from '../autonomy';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
@@ -133,8 +135,6 @@ export interface PdcaLaunchDeps {
   persistSessionMetadata: (session: ChatSession) => Promise<void>;
   /** 最近 N 条用户文本 */
   recentUserText: (session: ChatSession, n?: number) => string;
-  /** 最后一条 assistant 文本 */
-  lastAssistantText: (session: ChatSession) => string;
   /**
    * BUG-A（2026-10-27）：最近一条 assistant 消息是否为「空输出兜底」投影。
    * 未注入 ⇒ 视为 false（测试替身/无 UI 场景保持旧行为）。
@@ -172,6 +172,9 @@ export class PdcaLaunchCoordinator {
     const userMessageCount = (
       session.messages?.filter((m) => m.role === 'user') ?? []
     ).length;
+    // P2-1（2026-11-28）：升级**目标**只取最后一条用户消息 ——
+    // 旧实现把最近 3 条用户话都拼进计划源，目标里混入已完成的历史请求。
+    const lastUserOnly = this.deps.recentUserText(session, 1).trim();
     const shouldEscalate = shouldEscalateLongTask({
       longTask: true,
       hasProjectContext: Boolean(
@@ -211,14 +214,12 @@ export class PdcaLaunchCoordinator {
       consumedTurns: fact.consumedTurns,
       userMessageCount,
     });
-    // P0（2026-11-24，真机 `session_mwq5ookl21aa28ea96`）：升级描述**不得为空**。
-    // 该轮是只读问答（34 轮 grep/file_read），工具轮把 assistant 消息以 `content=''`
-    // 落盘 ⇒ 旧实现直接拿空串当描述，建出空目标 3 阶段链（2.32M tokens）。
-    // 口径：模型产出优先；为空则回退最近用户文本；两者都空 ⇒ **放弃升级**并留痕。
+    // P2-1（2026-11-28，真机 `session_mwz477wj251057474e`）：升级描述只能取**本轮**助手正文
+    //（旧实现跨轮取"最近一条非空正文"，把上一轮图片解读当成"已确认的计划"并入本轮目标）。
     const assistantText = this.deps.isLastAssistantOutputFallback?.(session)
-      ? lastUserContent
-      : this.deps.lastAssistantText(session);
-    const description = assistantText.trim() ? assistantText : lastUserContent;
+      ? ''
+      : lastAssistantTextInCurrentTurn(session);
+    const description = assistantText.trim() ? assistantText : lastUserOnly;
     if (!description.trim()) {
       logger.info('pdca:long_task_signal_skipped', {
         sessionId: session.id,
@@ -234,7 +235,7 @@ export class PdcaLaunchCoordinator {
       // BUG-A（2026-10-27）：兜底文案是**系统文案**而非模型产出 ⇒ 用用户任务原句作描述
       //（判定走结构化标记，禁止文案匹配 —— CS02）。
       assistantContent: description,
-      lastUserContent,
+      lastUserContent: lastUserOnly,
       // LRO-11：信号已证明是长任务 ⇒ 不允许被"消息长度 ≤60"判成单步直执行
       forceDecompose: true,
     });

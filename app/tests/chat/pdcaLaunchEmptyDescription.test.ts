@@ -18,7 +18,7 @@ import {
   type PdcaLaunchDeps,
 } from '../../src/chat/manager/pdcaLaunch';
 import type { PdcaLauncher } from '../../src/chat/launchers/PdcaLauncher';
-import { lastAssistantText } from '../../src/chat/manager/sessionAccessors';
+import { lastAssistantTextInCurrentTurn } from '../../src/chat/manager/sessionAccessors';
 import type { ChatSession } from '@modules/session/types/session.js';
 
 const makeSession = (
@@ -30,7 +30,6 @@ const makeSession = (
 function makeDeps(input: {
   launcher: PdcaLauncher | null;
   recentUserText?: string;
-  lastAssistantText?: string;
 }): PdcaLaunchDeps {
   return {
     launchingSessions: new Set<string>(),
@@ -40,7 +39,6 @@ function makeDeps(input: {
     appendStreamEvent: async () => ({}),
     persistSessionMetadata: async () => {},
     recentUserText: () => input.recentUserText ?? '',
-    lastAssistantText: () => input.lastAssistantText ?? '',
   };
 }
 
@@ -59,14 +57,25 @@ function makeLauncher(calls: string[]): PdcaLauncher {
   } as unknown as PdcaLauncher;
 }
 
-describe('lastAssistantText：跳过空白 assistant 消息', () => {
-  it('最近一条是工具轮的 content="" ⇒ 取更早的非空正文', () => {
+describe('lastAssistantTextInCurrentTurn：只取本轮（最后一条 user 之后）', () => {
+  it('本轮有非空正文 ⇒ 取本轮', () => {
     const session = makeSession([
-      { role: 'user', content: '看一下有哪些面板' },
-      { role: 'assistant', content: '上一个回合的结论' },
+      { role: 'user', content: '上一轮问题' },
+      { role: 'assistant', content: '上一轮结论' },
+      { role: 'user', content: '本轮问题' },
+      { role: 'assistant', content: '本轮结论' },
+    ]);
+    expect(lastAssistantTextInCurrentTurn(session)).toBe('本轮结论');
+  });
+
+  it('本轮只有空/工具消息 ⇒ 空串（不跨轮取旧答案）', () => {
+    const session = makeSession([
+      { role: 'user', content: '上一轮问题' },
+      { role: 'assistant', content: '上一轮结论' },
+      { role: 'user', content: '你画一张鹈鹕骑自行车的图片' },
       { role: 'assistant', content: '' },
     ]);
-    expect(lastAssistantText(session)).toBe('上一个回合的结论');
+    expect(lastAssistantTextInCurrentTurn(session)).toBe('');
   });
 
   it('全部为空 ⇒ 空串（由调用方回退用户文本）', () => {
@@ -74,7 +83,7 @@ describe('lastAssistantText：跳过空白 assistant 消息', () => {
       { role: 'user', content: 'q' },
       { role: 'assistant', content: '   ' },
     ]);
-    expect(lastAssistantText(session)).toBe('');
+    expect(lastAssistantTextInCurrentTurn(session)).toBe('');
   });
 });
 
@@ -112,7 +121,6 @@ describe('onLongTaskSignal：空描述不得升级', () => {
       makeDeps({
         launcher: makeLauncher([]),
         recentUserText: '帮我梳理前端面板清单',
-        lastAssistantText: '',
       })
     );
     const escalated: Array<{ assistantContent?: string }> = [];
@@ -137,6 +145,47 @@ describe('onLongTaskSignal：空描述不得升级', () => {
 
     expect(escalated).toHaveLength(1);
     expect(escalated[0]?.assistantContent).toBe('帮我梳理前端面板清单');
+  });
+
+  /**
+   * P2-1（2026-11-28，真机 `session_mwz477wj251057474e`）：上一轮的助手正文**不得**被当成
+   * "已确认的执行计划"并入本轮目标（该轮把上一轮图片解读 945 字塞进了「画一张 SVG」）。
+   */
+  it('本轮无正文、上一轮有旧答案 ⇒ 只用本轮用户原话作描述', async () => {
+    const coordinator = new PdcaLaunchCoordinator(
+      makeDeps({
+        launcher: makeLauncher([]),
+        recentUserText: '你画一张鹈鹕骑自行车的图片。SVG的吧。',
+      })
+    );
+    const escalated: Array<{ assistantContent?: string }> = [];
+    (
+      coordinator as unknown as {
+        escalateViaBareSession: (p: {
+          assistantContent?: string;
+        }) => Promise<void>;
+      }
+    ).escalateViaBareSession = async (p) => {
+      escalated.push(p);
+    };
+
+    await coordinator.onLongTaskSignal(
+      makeSession([
+        { role: 'user', content: '这两幅图呢？' },
+        {
+          role: 'assistant',
+          content: '两张都是广州：图一是珠江夜景…（945 字旧答案）',
+        },
+        { role: 'user', content: '你画一张鹈鹕骑自行车的图片。SVG的吧。' },
+        { role: 'assistant', content: '' },
+      ]),
+      { pendingTodoCount: 0, consumedTurns: 34 }
+    );
+
+    expect(escalated).toHaveLength(1);
+    expect(escalated[0]?.assistantContent).toBe(
+      '你画一张鹈鹕骑自行车的图片。SVG的吧。'
+    );
   });
 });
 

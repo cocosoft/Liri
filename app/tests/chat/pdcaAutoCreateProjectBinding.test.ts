@@ -38,7 +38,6 @@ function makeCoordinator() {
       persisted.push(String(session.metadata?.projectId ?? ''));
     },
     recentUserText: () => '',
-    lastAssistantText: () => '',
   });
   return { coordinator, persisted };
 }

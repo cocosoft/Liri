@@ -135,7 +135,6 @@ import {
   getSessionWorkspaceId,
   isLastAssistantOutputFallback,
   isSessionWorkspaceStrict,
-  lastAssistantText,
   recentUserText,
 } from './sessionAccessors';
 // B1（2026-10-30）：会话工作区根列表（首根 = 主工作区）仍由 `workspacePath` 单一实现
@@ -691,7 +690,6 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
     persistSessionMetadata: (session) => host.persistSessionMetadata(session),
     recentUserText: (session, n) => recentUserText(session, n),
-    lastAssistantText: (session) => lastAssistantText(session),
     // BUG-A（2026-10-27）：长任务信号升级时区分"模型产出"与"空输出兜底"（结构化标记）
     isLastAssistantOutputFallback: (session) =>
       isLastAssistantOutputFallback(session),

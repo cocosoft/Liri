@@ -42,7 +42,6 @@ function makeDeps(options: { launcher: 'none' | 'ok'; busy?: boolean }): {
     appendStreamEvent: async () => ({}),
     persistSessionMetadata: async () => {},
     recentUserText: () => '',
-    lastAssistantText: () => '',
   };
   return { deps, calls, launchingSessions };
 }

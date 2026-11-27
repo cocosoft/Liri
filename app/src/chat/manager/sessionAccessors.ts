@@ -144,18 +144,19 @@ export function recentUserText(session: ChatSession, n = 3): string {
 }
 
 /**
- * 最近一条**非空** assistant 消息的文本（无则空串 —— 工具型收尾常为空）。
+ * **本轮**（最后一条用户消息之后）最近一条非空 assistant 文本；无则空串。
  *
- * P0（2026-11-24，真机 `session_mwq5ookl21aa28ea96`）：工具轮常把 assistant 消息以
- * `content=''` 落盘（仅承载 tool_calls）。原实现只要求 `typeof content === 'string'`
- * 就返回 ⇒ "最近一条"可能是空串 ⇒ 长任务信号升级时以**空描述**建项目 + 阶段链
- * （该任务烧了 2.32M tokens 产出一份无人认领的 PRD）。此处跳过空白文本，
- * 由调用方回退"最近用户文本"。
+ * P2-1（2026-11-28，真机 `session_mwz477wj251057474e`）：长任务信号升级只应取**本轮**内容 ——
+ * 旧实现（`lastAssistantText`）跨轮取"最近一条非空正文"，该真机因此把**上一轮的图片解读**
+ * （945 字）当成"已确认的执行计划"并入「画一张 SVG」的目标（计划第 1 步写成 image_explanation.md）。
+ *
+ * 判据是**结构位置**（是否位于最后一条 user 消息之后），不是文案匹配（CS02）。
  */
-export function lastAssistantText(session: ChatSession): string {
+export function lastAssistantTextInCurrentTurn(session: ChatSession): string {
   const messages = session.messages ?? [];
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i] as unknown as { role?: string; content?: unknown };
+    if (m?.role === 'user') return '';
     if (
       m?.role === 'assistant' &&
       typeof m.content === 'string' &&

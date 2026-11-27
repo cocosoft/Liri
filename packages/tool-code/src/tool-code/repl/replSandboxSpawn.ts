@@ -31,7 +31,9 @@
  *  - Linux：`landlock-run <规则> -- <解释器> <参数…>`（内核 Landlock 域）；
  *  - macOS：`/usr/bin/sandbox-exec -p <SBPL> -- <解释器> <参数…>`（Seatbelt）；
  *  - Windows：`win-sandbox-run.exe -- <解释器> <参数…>`（Low IL + Job Object），
- *    并在会话生命周期内把可写目录**临时**降为 Low 完整性标签，`stopREPL` / 进程退出时恢复。
+ *    并在会话生命周期内把可写目录**临时**降为 Low 完整性标签，`stopREPL` / 进程退出时恢复；
+ *    `.cmd/.bat`（如 `npx`）经 `cmd.exe /d /s /c` + **环境变量转交**命令文本
+ *    （helper 的 argv 引号规则与 cmd 不兼容，见 `buildCmdTransferInvocation`）。
  *
  * **为什么能在包裹后保持"交互式 REPL"**：
  *  - `landlock-run`（`native/main.c`）在 `restrict_self` 成功后直接 `execvp(command)`；
@@ -77,7 +79,10 @@ import {
   buildBashLandlockPolicy,
   buildShellManagedWritableDirs,
 } from '@modules/tools/bash/bashLandlockExec';
-import { beginWindowsBashGrants } from '@modules/tools/bash/bashWindowsSandbox';
+import {
+  beginWindowsBashGrants,
+  buildWindowsBashInvocation,
+} from '@modules/tools/bash/bashWindowsSandbox';
 
 const logger = getLogger('tools:repl:sandbox');
 
@@ -134,10 +139,22 @@ export interface ReplSandboxPlannerDeps {
   winHelperPath?: string;
   /** 规则路径存在性（默认 `fs.existsSync`，见 `buildLandlockArgv`） */
   pathExists?: (path: string) => boolean;
-  /** Windows 程序解析（默认 `where.exe`；返回 `null` = 不是可直接 CreateProcess 的 `.exe`） */
-  resolveWinExecutable?: (command: string) => string | null;
+  /** Windows 程序解析（默认 `where.exe`；`null` = 既非 `.exe` 也非 `.cmd/.bat`） */
+  resolveWinProgram?: (command: string) => WinResolvedProgram | null;
   /** Windows 授权（默认 `beginWindowsBashGrants`；测试注入以免改真实 ACL） */
   beginWinGrants?: (dirs: string[]) => Promise<WindowsGrantSessionLike>;
+}
+
+/**
+ * Windows 上解析到的目标程序。
+ *
+ * - `viaCmd: false` ⇒ helper 直接 `CreateProcess` 该 `.exe`；
+ * - `viaCmd: true` ⇒ `.cmd/.bat`（如 `npx.cmd`）：helper 不能直接启动它，需经
+ *   `cmd.exe /d /s /c`，且命令文本走**环境变量**转交（见 `buildCmdTransferInvocation`）。
+ */
+export interface WinResolvedProgram {
+  program: string;
+  viaCmd: boolean;
 }
 
 export interface ReplSandboxSpawnInput {
@@ -181,10 +198,22 @@ function unavailable(
   };
 }
 
-/** 解析 Windows 上可直接交给 `CreateProcess` 的 `.exe`（`npx` 之类 `.cmd` 一律不通过） */
-function defaultResolveWinExecutable(command: string): string | null {
-  if (/\.exe$/i.test(command)) return command;
-  // 带路径但不是 .exe（如 `C:\...\npx.cmd`）⇒ 无法直接 CreateProcess
+/**
+ * 解析 Windows 上可被 helper 启动的目标（`where.exe` 兜底）。
+ *
+ * `.exe` ⇒ 直接 CreateProcess；`.cmd` / `.bat` ⇒ 返回 `viaCmd: true`（上层经 `cmd.exe` 转交）。
+ * 其余（含带路径的非可执行文件、解析失败）⇒ `null`。
+ */
+function defaultResolveWinProgram(command: string): WinResolvedProgram | null {
+  const classify = (path: string): WinResolvedProgram | null => {
+    if (/\.exe$/i.test(path)) return { program: path, viaCmd: false };
+    if (/\.(cmd|bat)$/i.test(path)) return { program: path, viaCmd: true };
+    return null;
+  };
+  if (/\.(exe|cmd|bat)$/i.test(command)) {
+    return classify(command);
+  }
+  // 带路径但没有可识别扩展名 ⇒ 无法判断能否直接启动（不猜）
   if (command.includes('\\') || command.includes('/')) return null;
   try {
     const out = spawnSync('where.exe', [command], {
@@ -197,11 +226,38 @@ function defaultResolveWinExecutable(command: string): string | null {
       .split(/\r?\n/)
       .map((line) => line.trim())
       .find(Boolean);
-    return first && /\.exe$/i.test(first) ? first : null;
+    return first ? classify(first) : null;
   } catch {
     // @ignore-catch 解析失败 ⇒ 视为不可沙箱化（走降级/拒绝分支，不臆造路径）
     return null;
   }
+}
+
+/** REPL 的 `.cmd/.bat` 命令文本转交变量（与 bash 的 `LIRI_BASH_CMD` 区分） */
+export const REPL_WINDOWS_CMD_ENV = 'LIRI_REPL_CMD';
+
+/**
+ * `.cmd/.bat` 的 `cmd.exe` 转交形态（复用 bash 已证实的"环境变量转交"实现）。
+ *
+ * 为什么不能直接把命令文本当 argv：helper 的 `build_command_line` 会把含空格的参数整体加引号、
+ * 并把内部 `"` 转义成 `\"`，而 **cmd.exe 不认反斜杠转义**（bash 侧真机实测过）。
+ *
+ * @returns `null` = 参数里含 `"`（无法在 cmd 命令行里安全表达）⇒ 调用方降级
+ */
+function buildCmdTransferInvocation(
+  resolved: WinResolvedProgram,
+  args: string[],
+  env: NodeJS.ProcessEnv
+): { program: string; args: string[]; env: Record<string, string> } | null {
+  // `.cmd` 路径可能含空格（如 `C:\Program Files\nodejs\npx.cmd`）⇒ 统一加引号
+  if (resolved.program.includes('"') || args.some((arg) => arg.includes('"'))) {
+    return null;
+  }
+  return buildWindowsBashInvocation({
+    command: [`"${resolved.program}"`, ...args].join(' '),
+    env,
+    envVarName: REPL_WINDOWS_CMD_ENV,
+  });
 }
 
 /**
@@ -308,15 +364,15 @@ export async function planReplSandboxSpawn(
         config.failClosed
       );
     }
-    const exe = (deps.resolveWinExecutable ?? defaultResolveWinExecutable)(
+    const resolved = (deps.resolveWinProgram ?? defaultResolveWinProgram)(
       input.command
     );
-    if (!exe) {
-      // `.cmd` / `.bat`（如 npx）无法被 helper 直接 CreateProcess ⇒ 如实降级
+    if (!resolved) {
+      // 既非 `.exe` 也非 `.cmd/.bat`（或解析失败）⇒ 如实降级
       return unavailable(
         input,
-        'windows-non-exe',
-        `命令 ${input.command} 不是可直接启动的 .exe（.cmd/.bat 需经 shell，helper 不支持）`,
+        'windows-unresolvable-command',
+        `命令 ${input.command} 既不是可直接启动的 .exe，也不是可经 cmd.exe 转交的 .cmd/.bat`,
         config.failClosed
       );
     }
@@ -334,6 +390,26 @@ export async function planReplSandboxSpawn(
       TMP: windowsTemp,
       TMPDIR: windowsTemp,
     };
+
+    // `.cmd/.bat`（如 `npx.cmd`）⇒ helper 经 `cmd.exe /d /s /c` 启动，命令文本走环境变量
+    let target = { program: resolved.program, args: input.args };
+    if (resolved.viaCmd) {
+      const transfer = buildCmdTransferInvocation(
+        resolved,
+        input.args,
+        childEnv
+      );
+      if (!transfer) {
+        return unavailable(
+          input,
+          'windows-cmd-unsafe-args',
+          `命令 ${input.command} 需经 cmd.exe 转交，但参数含双引号（cmd 命令行无法安全表达）`,
+          config.failClosed
+        );
+      }
+      target = { program: transfer.program, args: transfer.args };
+      Object.assign(childEnv, transfer.env);
+    }
 
     const writableDirs = buildShellManagedWritableDirs({
       cwd: input.cwd,
@@ -360,8 +436,8 @@ export async function planReplSandboxSpawn(
       command: helperPath,
       env: childEnv,
       args: buildWinSandboxArgv({
-        program: exe,
-        args: input.args,
+        program: target.program,
+        args: target.args,
         // 0 = 不限时（helper 的 INFINITE 分支）；单次执行超时由 `executeCode` 兜底
         timeoutMs: 0,
       }),

@@ -148,10 +148,18 @@ export function buildIntegrityLevelArgs(
  * ⚠️ 这里必须做文本解析：`icacls` 是唯一"普通权限即可读标签"的通道
  * （读 SACL 需 `SeSecurityPrivilege`，而 `LABEL_SECURITY_INFORMATION` 不需要）；
  * 输出随系统语言变化 ⇒ 同时认中英文关键词（`CS02` 的例外：外部工具输出没有语言中立编码）。
+ *
+ * ⚠️ **`(IO)`（inherit-only）标签不算本对象的级别**（2026-11-27 真机根因）：
+ * 本机 `C:\` 带 `Mandatory Label\High Mandatory Level:(OI)(NP)(IO)(NW)` —— 它只用于**向下继承**，
+ * 对 `C:\` 自己**不生效**。旧实现把它当成"目录的真实级别"，导致 `~/.pyapp/attachments`
+ * （自身无显式标签）被推算成 `High` ⇒ 降为 Low 后**无法恢复**（提升级别需 `SeRelabelPrivilege`），
+ * 目录被永久留在 Low。现显式忽略含 `(IO)` 的标签行。
  */
 export function parseIntegrityLevel(text: string): IntegrityLevel | null {
   for (const line of text.split(/\r?\n/)) {
     if (!/mandatory level|强制级别/i.test(line)) continue;
+    // 继承专用（(IO)）⇒ 不作用于该对象本身
+    if (/\(IO\)/i.test(line)) continue;
     if (/\blow\b|低/i.test(line)) return 'Low';
     if (/\bmedium\b|中/i.test(line)) return 'Medium';
     if (/\bhigh\b|高/i.test(line)) return 'High';
@@ -323,6 +331,11 @@ export interface WindowsBashGrantSession {
   ok: boolean;
   granted: string[];
   failures: WindowsBashGrantFailure[];
+  /**
+   * 因"降级后无法恢复"被跳过的目录（当前级别 High/System；2026-11-27）。
+   * 它们**不进** `failures`：沙箱仍可运行，只是这些目录在域内不可写（安全方向）。
+   */
+  skipped: string[];
   /** `finally` 里调用：逐个降引用，归零时恢复原标签并清台账 */
   release: () => Promise<void>;
 }
@@ -359,6 +372,14 @@ function failureOf(
 ): WindowsBashGrantFailure {
   return { dir, error: out.error ?? (out.stderr.trim() || fallback) };
 }
+
+/**
+ * `grantOne` 的"跳过"哨兵（2026-11-27）。
+ *
+ * 用 **Symbol** 而不是字符串字面量：`lint:state-ratchet` 会把新增的字符串状态词当状态词汇，
+ * 而这里只是一个内部返回值区分，并非状态（CS02 同理：状态判定不靠字符串）。
+ */
+const GRANT_UNRESTORABLE: unique symbol = Symbol();
 
 /**
  * 把目录标签设为 Low；缺 `WRITE_OWNER` 时**补一次** ACE 并记台账（进程内复用）。
@@ -432,7 +453,7 @@ async function grantOne(
   run: IcaclsRunner,
   journalPath: string,
   sid: string | null
-): Promise<WindowsBashGrantFailure | null> {
+): Promise<WindowsBashGrantFailure | typeof GRANT_UNRESTORABLE | null> {
   const probe = await run([dir]);
   if (!probe.ok) {
     return failureOf(dir, probe, 'icacls 读取目录失败');
@@ -446,6 +467,18 @@ async function grantOne(
     previous?.restoreLevel ??
     parseIntegrityLevel(probe.stdout) ??
     (await resolveEffectiveLevel(dirname(resolve(dir)), run));
+
+  // fail-safe（2026-11-27）：**绝不降级一个自己恢复不了的级别**。
+  // 把标签提升到 High/System 需要 `SeRelabelPrivilege`（普通用户没有）⇒ 一旦降为 Low 就
+  // 永久留在 Low（真机事故：`C:\` 的 `(IO)` 继承标签被误当成 attachments 的级别）。
+  // 该目录直接跳过：沙箱内不授予写权限（安全方向），并留 WARN 说明原因。
+  if (restoreLevel === 'High' || restoreLevel === 'System') {
+    logger.warn('bash: windows-grant-skipped-unrestorable', {
+      dir,
+      restoreLevel,
+    });
+    return GRANT_UNRESTORABLE;
+  }
 
   const low = await setLowIntegrity(dir, run, journalPath, sid);
   if (!low.ok) return low.failure;
@@ -538,6 +571,7 @@ export async function beginWindowsBashGrants(
 
   const granted: string[] = [];
   const failures: WindowsBashGrantFailure[] = [];
+  const skipped: string[] = [];
   for (const dir of normalizeDirs(dirs, pathExists)) {
     const active = activeGrants.get(grantKey(dir));
     if (active) {
@@ -545,8 +579,9 @@ export async function beginWindowsBashGrants(
       granted.push(dir);
       continue;
     }
-    const failure = await grantOne(dir, run, journalPath, sid);
-    if (failure) failures.push(failure);
+    const outcome = await grantOne(dir, run, journalPath, sid);
+    if (outcome === GRANT_UNRESTORABLE) skipped.push(dir);
+    else if (outcome) failures.push(outcome);
     else granted.push(dir);
   }
 
@@ -554,6 +589,7 @@ export async function beginWindowsBashGrants(
     ok: failures.length === 0,
     granted,
     failures,
+    skipped,
     release: () => releaseGrants(granted, run, journalPath),
   };
 }
@@ -667,17 +703,25 @@ export async function cleanupStaleWindowsBashGrants(
   const failures: WindowsBashGrantFailure[] = [];
   for (const entry of journal.entries) {
     if (!pathExists(entry.dir)) continue;
-    const ok = await revokeLabel(
-      entry.dir,
-      entry.restoreLevel,
-      run,
-      journalPath
-    );
+    // 2026-11-27：旧台账可能记录了"降级后无法恢复"的 High/System（提升需 SeRelabelPrivilege）。
+    // 这类条目重试必然失败 ⇒ 改为恢复到 Medium（用户数据的常态级别；比留在 Low 更安全），并留 WARN。
+    const restoreLevel: IntegrityLevel =
+      entry.restoreLevel === 'High' || entry.restoreLevel === 'System'
+        ? 'Medium'
+        : entry.restoreLevel;
+    if (restoreLevel !== entry.restoreLevel) {
+      logger.warn('bash: windows-revoke-unrestorable-fallback-medium', {
+        dir: entry.dir,
+        from: entry.restoreLevel,
+        to: restoreLevel,
+      });
+    }
+    const ok = await revokeLabel(entry.dir, restoreLevel, run, journalPath);
     if (ok) {
       restored.push(entry.dir);
       logger.info('bash: windows-revoke-stale', {
         dir: entry.dir,
-        restoreLevel: entry.restoreLevel,
+        restoreLevel,
       });
     } else {
       failures.push({
@@ -757,17 +801,25 @@ export function buildWindowsBashInvocation(input: {
   command: string;
   env?: Record<string, string | undefined>;
   comspec?: string;
+  /**
+   * 转交命令文本用的环境变量名（缺省 `LIRI_BASH_CMD`）。
+   *
+   * 2026-11-27（SG-1）：REPL 的 `.cmd/.bat` 包裹（`repl/replSandboxSpawn.ts`）复用本函数，
+   * 传入自己的变量名，避免两类工具的会话日志/环境里出现同名不同义的键。
+   */
+  envVarName?: string;
 }): WindowsBashInvocation {
   const env = input.env ?? {};
   // `ComSpec` 走**传入的 child env**（不直接读 process.env，R05-012）
   const program = input.comspec?.trim() || env.ComSpec?.trim() || 'cmd.exe';
   const command = expandWindowsEnvVars(input.command, env);
-  const placeholder = `%${WINDOWS_BASH_CMD_ENV}%`;
+  const envVarName = input.envVarName ?? WINDOWS_BASH_CMD_ENV;
+  const placeholder = `%${envVarName}%`;
   const script = command.includes('%') ? `call ${placeholder}` : placeholder;
   return {
     program,
     args: ['/d', '/s', '/c', script],
-    env: { [WINDOWS_BASH_CMD_ENV]: command },
+    env: { [envVarName]: command },
   };
 }
 

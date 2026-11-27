@@ -218,7 +218,10 @@ describe('planReplSandboxSpawn：Windows Low IL', () => {
           runnable: true,
           path: 'C:/bin/win-sandbox-run.exe',
         }),
-        resolveWinExecutable: () => 'C:/Python/python.exe',
+        resolveWinProgram: () => ({
+          program: 'C:/Python/python.exe',
+          viaCmd: false,
+        }),
         beginWinGrants: async () => {
           grants.calls += 1;
           return grants.session;
@@ -246,7 +249,10 @@ describe('planReplSandboxSpawn：Windows Low IL', () => {
       baseDeps({
         platform: 'win32',
         detectWin: () => ({ available: true, runnable: true }),
-        resolveWinExecutable: () => 'C:/Python/python.exe',
+        resolveWinProgram: () => ({
+          program: 'C:/Python/python.exe',
+          viaCmd: false,
+        }),
         beginWinGrants: async () => ({
           ok: false,
           failures: [{ dir: 'C:/ws', error: 'Access is denied' }],
@@ -270,7 +276,10 @@ describe('planReplSandboxSpawn：Windows Low IL', () => {
         platform: 'win32',
         config: { ...ON, failClosed: true },
         detectWin: () => ({ available: true, runnable: true }),
-        resolveWinExecutable: () => 'C:/Python/python.exe',
+        resolveWinProgram: () => ({
+          program: 'C:/Python/python.exe',
+          viaCmd: false,
+        }),
         beginWinGrants: async () => ({
           ok: false,
           failures: [{ dir: 'C:/ws', error: 'denied' }],
@@ -284,16 +293,74 @@ describe('planReplSandboxSpawn：Windows Low IL', () => {
     expect(released).toBe(1);
   });
 
-  it('命令不是 .exe（如 npx.cmd）⇒ 降级（helper 无法直接 CreateProcess）', async () => {
+  it('命令解析不出可启动形态 ⇒ 降级（不猜路径）', async () => {
     const p = await plan(
       baseDeps({
         platform: 'win32',
         detectWin: () => ({ available: true, runnable: true }),
-        resolveWinExecutable: () => null,
+        resolveWinProgram: () => null,
       })
     );
     expect(p.mode).toBe('none');
-    expect(p.reason).toBe('windows-non-exe');
+    expect(p.reason).toBe('windows-unresolvable-command');
+  });
+
+  it('`.cmd`（如 npx）⇒ 经 cmd.exe /d /s /c + 环境变量转交，命令文本带引号路径', async () => {
+    const p = await planReplSandboxSpawn({
+      command: 'npx',
+      args: ['ts-node', '-i'],
+      cwd: process.cwd(),
+      env: { PATH: '/x' },
+      deps: baseDeps({
+        platform: 'win32',
+        winHelperPath: 'C:/bin/win-sandbox-run.exe',
+        detectWin: () => ({ available: true, runnable: true }),
+        resolveWinProgram: () => ({
+          program: 'C:/Program Files/nodejs/npx.cmd',
+          viaCmd: true,
+        }),
+        beginWinGrants: async () => ({
+          ok: true,
+          failures: [],
+          release: async () => {},
+        }),
+      }),
+    });
+    expect(p.mode).toBe('windows-low-il');
+    // helper 的 argv 里只有 `%LIRI_REPL_CMD%`（无空格 ⇒ 不经 helper 的引号规则）
+    expect(p.args.slice(-5)).toEqual([
+      'cmd.exe',
+      '/d',
+      '/s',
+      '/c',
+      '%LIRI_REPL_CMD%',
+    ]);
+    // 真正的命令文本走环境变量（UTF-16 环境块，避开 cmd 不认 `\"` 的问题）
+    expect(p.env.LIRI_REPL_CMD).toBe(
+      '"C:/Program Files/nodejs/npx.cmd" ts-node -i'
+    );
+  });
+
+  it('`.cmd` 且参数含双引号 ⇒ 降级（cmd 命令行无法安全表达）', async () => {
+    const p = await planReplSandboxSpawn({
+      command: 'npx',
+      args: ['x"y'],
+      cwd: process.cwd(),
+      env: { PATH: '/x' },
+      deps: baseDeps({
+        platform: 'win32',
+        detectWin: () => ({ available: true, runnable: true }),
+        resolveWinProgram: () => ({ program: 'C:/x/run.cmd', viaCmd: true }),
+        beginWinGrants: async () => ({
+          ok: true,
+          failures: [],
+          release: async () => {},
+        }),
+      }),
+    });
+    // 未授权前就拒绝转交 ⇒ 不会去改 ACL
+    expect(p.mode).toBe('none');
+    expect(p.reason).toBe('windows-cmd-unsafe-args');
   });
 
   it('helper 的 --probe 未通过（runnable=false）⇒ 与缺失同口径', async () => {

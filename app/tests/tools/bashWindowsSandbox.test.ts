@@ -143,6 +143,15 @@ describe('§10 授权形态与解析', () => {
     expect(parseIntegrityLevel('X NT AUTHORITY\\SYSTEM:(I)(F)')).toBeNull();
   });
 
+  it('`(IO)`（inherit-only）标签不算本对象级别（2026-11-27 真机根因）', () => {
+    // 本机 `C:\` 的形态：只用于向下继承，对 `C:\` 自己不生效
+    expect(
+      parseIntegrityLevel(
+        'C:\\ Mandatory Label\\High Mandatory Level:(OI)(NP)(IO)(NW)'
+      )
+    ).toBeNull();
+  });
+
   it('拒绝访问的归因关键词', () => {
     expect(isWindowsAccessDenied('Access is denied.')).toBe(true);
     expect(isWindowsAccessDenied('拒绝访问。')).toBe(true);
@@ -201,6 +210,43 @@ describe('§10 授权 / 撤销（引用计数 + 台账）', () => {
     });
     expect(session).toMatchObject({ ok: true, granted: [], failures: [] });
     expect(icacls.calls).toEqual([]);
+  });
+
+  it('目录当前级别为 High ⇒ 跳过（降级后无法恢复），不算失败、不改 ACL', async () => {
+    const journal = tempJournal();
+    const calls: string[][] = [];
+    const run: IcaclsRunner = async (args) => {
+      calls.push([...args]);
+      const dir = args[0];
+      // 目标目录自身无显式标签；任一父目录返回 High（提升级别需 SeRelabelPrivilege ⇒ 不可恢复）
+      if (args[1] === '/setintegritylevel') {
+        return { ok: true, stdout: '', stderr: '' };
+      }
+      const isTarget = dir.toLowerCase().endsWith('ws');
+      return {
+        ok: true,
+        stdout: isTarget
+          ? `${dir} NT AUTHORITY\\SYSTEM:(I)(F)`
+          : `${dir} Mandatory Label\\High Mandatory Level:(OI)(CI)(NW)`,
+        stderr: '',
+      };
+    };
+
+    const session = await beginWindowsBashGrants(['C:\\work\\ws'], {
+      runIcacls: run,
+      journalPath: journal,
+      pathExists: () => true,
+      resolveUserSid,
+    });
+
+    expect(session).toMatchObject({
+      ok: true,
+      granted: [],
+      failures: [],
+      skipped: ['C:\\work\\ws'],
+    });
+    expect(calls.some((c) => c[1] === '/setintegritylevel')).toBe(false);
+    expect(readGrantJournal(journal)).toEqual([]);
   });
 
   it('设置标签失败 ⇒ ok=false（带原因），且不记台账', async () => {

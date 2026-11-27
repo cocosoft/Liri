@@ -202,4 +202,25 @@ Low IL 进程**默认不能写** Medium 目录。要让 bash 能写工作区，�
 2. 用受信任证书给 `win-sandbox-run.exe` 签名（企业环境首选；SAC 下仍受 ISG 声誉约束）；
 3. 由管理员在 WDAC 策略中把该 helper 加入允许清单并重启策略（SAC 开启时可能仍被其自身策略拦截）。
 
+### 8.4 2026-11-27：REPL 接入时发现的三个真问题（已修）
+
+SG-1 把 REPL / notebook 执行面接进 Low IL 后，真机冒烟暴露并修复：
+
+1. **`(IO)` 标签被误当成目录自身的级别**：本机 `C:\` 带
+   `Mandatory Label\High Mandatory Level:(OI)(NP)(IO)(NW)` —— `(IO)` 是**继承专用**，对 `C:\` 自己不生效，
+   但 `parseIntegrityLevel` 只看关键词 ⇒ 把"父目录无显式标签"的 `~/.pyapp/attachments` 推算成 `High`。
+   修复：解析时**跳过含 `(IO)` 的行**（`bashWindowsSandbox.parseIntegrityLevel`）。
+2. **降级了恢复不了的级别**：把标签**提升**到 High/System 需要 `SeRelabelPrivilege`（普通用户没有）
+   ⇒ 一旦把 `High` 目录降为 Low 就永久留在 Low（真机已发生一次，已人工恢复为 Medium）。
+   修复：`grantOne` 在 `restoreLevel ∈ {High, System}` 时**跳过该目录**（不进 `failures`，会话仍可用，
+   该目录在域内不可写 = 安全方向），并在 `WindowsBashGrantSession.skipped` 如实返回；
+   `cleanupStaleWindowsBashGrants` 对旧台账里的 High/System 条目改恢复为 **Medium** 并留 WARN。
+3. **`.cmd/.bat` 无法被 helper 直接 `CreateProcess`**（`npx` 即此形态）：REPL 的 `typescript` 语言此前只能降级。
+   修复：`replSandboxSpawn` 用 `where.exe` 解析出 `.cmd/.bat` 后，经 `cmd.exe /d /s /c` +
+   **环境变量转交**命令文本（复用 `buildWindowsBashInvocation`，变量名 `LIRI_REPL_CMD`）；
+   参数含双引号时如实降级（cmd 命令行无法安全表达）。
+
+真机冒烟（本机）：`mode=windows-low-il`，`args=… -- C:\Windows\system32\cmd.exe /d /s /c %LIRI_REPL_CMD%`，
+`LIRI_REPL_CMD="…\probe.cmd"`，`exit=0 stdout=SMOKE_OK`，授权/恢复全部成功、台账归零。
+
 `verify-win-sandbox.ts` 的失败分支现已内置**只读诊断**（读上述注册表键与策略目录），把"为什么不可用"直接打在输出里。

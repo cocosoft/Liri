@@ -55,6 +55,7 @@ import { PermissionBehavior } from '../types/PermissionRule';
 import { denyByRule } from './denyByRule';
 import {
   evaluateOutOfWorkspaceWrite,
+  evaluateProtectedReadPath,
   evaluateProtectedWritePath,
 } from '../guards/pathBoundary';
 import { bypassPermissionsKillswitch } from '../utils/BypassPermissionsKillswitch';
@@ -107,6 +108,26 @@ function protectedWriteDeny(
 }
 
 /**
+ * D4 二期（2026-11-27）：读类工具的**凭据地板** —— 读向受保护凭据路径一律 deny。
+ *
+ * 与写闸同为安全地板（五档一致，含 bypass / dontAsk）；范围只到凭据面，
+ * 读系统配置文件不受影响（口径见 `guards/pathBoundary`）。
+ */
+function protectedReadDeny(
+  toolName: string,
+  input: Record<string, unknown>
+): PermissionDecision | null {
+  const hit = evaluateProtectedReadPath(toolName, input);
+  if (!hit) return null;
+  logger.warn('读取被拒绝：命中受保护凭据路径', {
+    toolName,
+    path: hit.path,
+    reason: hit.reason,
+  });
+  return createDenyDecision(`读取被拒绝：${hit.reason}`);
+}
+
+/**
  * D4（2026-11-27）：写类工具写到**工作区之外** ⇒ ask（需显式批准）。
  *
  * 插在"内容级 deny 之后、一切 ask/allow 之前"：deny 仍然优先，ask 只是新增一道确认。
@@ -152,6 +173,15 @@ function outOfWorkspaceAsk(
             input
           );
     if (protectedDeny) return protectedDeny;
+    // D4 二期：读凭据面同样不受档位影响（含 bypass）
+    const readDeny =
+      toolOrName === undefined
+        ? null
+        : protectedReadDeny(
+            typeof toolOrName === 'string' ? toolOrName : toolOrName.name,
+            input
+          );
+    if (readDeny) return readDeny;
     // F12（2026-11-22）：接入 killswitch —— 显式禁用（运行时 `disable()` 或
     // `PERMISSION_BYPASS_DISABLED=true`）后不得继续无条件放行。
     const envDisabled =
@@ -185,6 +215,9 @@ function outOfWorkspaceAsk(
     // D4（2026-11-27）：受保护路径地板 —— 先于一切规则（含允许规则与指纹放行）
     const protectedDeny = protectedWriteDeny(toolName, input);
     if (protectedDeny) return protectedDeny;
+    // D4 二期：读凭据面地板
+    const readDeny = protectedReadDeny(toolName, input);
+    if (readDeny) return readDeny;
 
     // 1. A 体系工具级 deny：deny 永远优先于任何 allow（含 RBAC allow）
     // P0-2（2026-11-11）：**显式 deny 不因「连续拒绝」升级为 ask** —— deny 可批准
@@ -309,6 +342,8 @@ function outOfWorkspaceAsk(
     // D4（2026-11-27）：受保护路径地板 —— 先于一切规则
     const protectedDeny = protectedWriteDeny(toolName, input);
     if (protectedDeny) return protectedDeny;
+    const readDeny = protectedReadDeny(toolName, input);
+    if (readDeny) return readDeny;
 
     // 使用新的规则管理器检查
     const denyRule = deps.ruleManager.getDenyRuleForTool(toolName, ruleContext);
@@ -489,6 +524,8 @@ function outOfWorkspaceAsk(
     // D4（2026-11-27）：受保护路径地板 —— "每步确认"也不得把受保护写入变成"可批准"
     const protectedDenyPlan = protectedWriteDeny(toolName, input);
     if (protectedDenyPlan) return protectedDenyPlan;
+    const readDenyPlan = protectedReadDeny(toolName, input);
+    if (readDenyPlan) return readDenyPlan;
 
     // P0-4（2026-11-11）：本档此前**无条件 ask** ⇒ 显式 deny / 命令黑名单 / RBAC deny
     // 全部被绕过（"每步确认"比 default 更宽松，且把禁止项变成可批准）。
@@ -557,6 +594,8 @@ function outOfWorkspaceAsk(
     // D4（2026-11-27）：受保护路径地板 —— 先于一切规则
     const protectedDenyAuto = protectedWriteDeny(toolName, input);
     if (protectedDenyAuto) return protectedDenyAuto;
+    const readDenyAuto = protectedReadDeny(toolName, input);
+    if (readDenyAuto) return readDenyAuto;
 
     // 检查规则
     // P0-2（2026-11-11）：显式 deny 不因连续拒绝升级为 ask（同上）。

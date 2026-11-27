@@ -253,3 +253,68 @@ export function getWriteProtectionReason(filePath: string): string {
 
   return '';
 }
+
+/**
+ * 读保护的**目录**范围：凭据 / 密钥面（家目录下）。
+ *
+ * 口径（2026-11-27，D4 读闸）：读取范围**小于**写入范围 —— shell rc、`/etc/hosts`、
+ * `/etc/passwd` 等系统配置文件读它们是常见调试动作，只做写保护；读闸只覆盖
+ * 「读出来就等于泄露凭据」的位置。
+ *
+ * 实现上从既有清单**筛选**（CS01：不新建第二份敏感表），新增平台条目只要落在家目录
+ * 凭据目录里即自动生效。
+ */
+const READ_PROTECTED_HOME_DIRS = [
+  '.ssh',
+  '.gnupg',
+  '.aws',
+  '.kube',
+  path.join('.config', 'gcloud'),
+];
+
+/** 读保护的**文件**范围：本地凭据存储（读即泄露） */
+const READ_PROTECTED_FILES = ['/etc/shadow', '/etc/sudoers'];
+
+/** Windows 注册表凭据配置单元（对应上面的 /etc 敏感文件） */
+const READ_PROTECTED_WINDOWS_HIVES = ['SAM', 'SECURITY', 'SYSTEM'];
+
+/** 读保护目录前缀（从 `getCrossPlatformProtectedDirectoryPrefixes` 筛出凭据目录） */
+export function getReadProtectedDirectoryPrefixes(): string[] {
+  const home = homeDir();
+  const wanted = new Set(
+    READ_PROTECTED_HOME_DIRS.map((d) => normalizePath(path.join(home, d)))
+  );
+  return getCrossPlatformProtectedDirectoryPrefixes()
+    .map((p) => normalizePath(p))
+    .filter((p) => wanted.has(p.replace(/\/$/, '')));
+}
+
+/** 读保护文件（从 `getCrossPlatformProtectedFiles` 筛出凭据存储） */
+export function getReadProtectedFiles(): string[] {
+  const sysRoot = configManager.env('SystemRoot') || 'C:\\Windows';
+  const wanted = new Set<string>(READ_PROTECTED_FILES.map((p) => normalizePath(p)));
+  for (const hive of READ_PROTECTED_WINDOWS_HIVES) {
+    wanted.add(normalizePath(path.join(sysRoot, 'System32', 'config', hive)));
+  }
+  return getCrossPlatformProtectedFiles()
+    .map((p) => normalizePath(p))
+    .filter((p) => wanted.has(p));
+}
+
+/** 判断给定路径是否受读取保护（凭据 / 密钥面） */
+export function isReadProtected(filePath: string): boolean {
+  const normalized = normalizePath(filePath);
+  if (getReadProtectedFiles().includes(normalized)) return true;
+  const withSlash = `${normalized}/`;
+  return getReadProtectedDirectoryPrefixes().some((prefix) =>
+    withSlash.startsWith(normalizePath(prefix))
+  );
+}
+
+/** 获取拒绝读取的原因描述 */
+export function getReadProtectionReason(filePath: string): string {
+  if (getReadProtectedFiles().includes(normalizePath(filePath))) {
+    return `路径 '${filePath}' 是本地凭据存储，读取被拒绝`;
+  }
+  return `路径 '${filePath}' 在凭据 / 密钥目录下，读取被拒绝`;
+}

@@ -1,12 +1,14 @@
 /**
- * D4（2026-11-27）：写类工具的**路径硬闸**。
+ * D4（2026-11-27）：文件类工具的**路径硬闸**（写类一期 + 读类二期）。
  *
- * 两条判据（都在权限层，simulate 与真实执行同源）：
- * 1. 受保护路径（`security/files/ProtectedPaths` 的清单）⇒ **deny**，五档一致（含 bypass）；
- * 2. 工作区外写入 ⇒ **ask**，仅 `default` / `auto`（`plan` 本已每步询问，`dontAsk`/`bypass` 语义是不询问）。
+ * 判据（都在权限层，simulate 与真实执行同源）：
+ * 1. 写类工具写向受保护路径（`security/files/ProtectedPaths` 的清单）⇒ **deny**，五档一致（含 bypass）；
+ * 2. 写类工具写向工作区外 ⇒ **ask**，仅 `default` / `auto`（`plan` 本已每步询问，`dontAsk`/`bypass` 语义是不询问）；
+ * 3. 读类工具读向**凭据 / 密钥面**（`~/.ssh` / `~/.aws` / `/etc/shadow` …）⇒ **deny**，五档一致；
+ *    读 shell rc、`/etc/hosts` 等系统配置文件不拦（常见调试动作），也不对读做越界 ask。
  *
- * 立论：内容级规则是用户自写正则，不能当边界保证；此前写类工具只有"规则/档位"，
- * 一条误配 allow 就能写进 `~/.ssh` / `/etc` / Windows SAM 这类位置。
+ * 立论：内容级规则是用户自写正则，不能当边界保证；此前文件类工具只有"规则/档位"，
+ * 一条误配 allow 就能写进 `~/.ssh` / `/etc` / Windows SAM 这类位置、或把本地凭据读给模型。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { homedir } from 'node:os';
@@ -18,6 +20,7 @@ import { PermissionManager } from '@openliri/infra/permission/PermissionManager'
 import type { PermissionMode } from '@openliri/infra/permission/PermissionMode';
 import {
   evaluateOutOfWorkspaceWrite,
+  evaluateProtectedReadPath,
   evaluateProtectedWritePath,
 } from '@openliri/infra/permission/guards/pathBoundary';
 import type { ToolPermissionResult } from '@openliri/infra/permission/manager/toolPermission';
@@ -103,6 +106,58 @@ describe('D4 判定单元：evaluateOutOfWorkspaceWrite', () => {
   });
 });
 
+describe('D4 二期判定单元：evaluateProtectedReadPath', () => {
+  const CREDENTIAL = join(homedir(), '.ssh', 'id_rsa');
+
+  it('读类工具 + 凭据路径 ⇒ 命中', () => {
+    const hit = evaluateProtectedReadPath('file_read', {
+      file_path: CREDENTIAL,
+    });
+    expect(hit).not.toBeNull();
+    expect(hit?.path.toLowerCase()).toContain('.ssh');
+    expect(hit?.reason).toContain('读取被拒绝');
+  });
+
+  it('`~` 前缀与 `target` 键同样判定（grep / code_analysis 口径）', () => {
+    expect(
+      evaluateProtectedReadPath('grep', { path: '~/.aws/credentials' })
+    ).not.toBeNull();
+    expect(
+      evaluateProtectedReadPath('code_analysis', { target: '~/.kube/config' })
+    ).not.toBeNull();
+  });
+
+  it('读系统配置文件（shell rc / normal）⇒ 不命中（读闸只到凭据面）', () => {
+    expect(
+      evaluateProtectedReadPath('file_read', { file_path: PROTECTED })
+    ).toBeNull();
+    expect(
+      evaluateProtectedReadPath('file_read', {
+        file_path: join(tmpdir(), 'normal.txt'),
+      })
+    ).toBeNull();
+  });
+
+  it('非读类工具 ⇒ 不命中（写闸/其他工具零行为变更）', () => {
+    expect(
+      evaluateProtectedReadPath('file_write', { file_path: CREDENTIAL })
+    ).toBeNull();
+    expect(
+      evaluateProtectedReadPath('task_output', { path: CREDENTIAL })
+    ).toBeNull();
+  });
+
+  it('读不做越界判定（跨工作区读取是常态，不误报 ask）', () => {
+    expect(
+      evaluateOutOfWorkspaceWrite(
+        'file_read',
+        { file_path: join(tmpdir(), 'outside.txt') },
+        [join(tmpdir(), 'ws')]
+      )
+    ).toBeNull();
+  });
+});
+
 describe('D4 集成：五档一致 + simulate 同源', () => {
   let dir: string;
   let manager: PermissionManager;
@@ -141,7 +196,37 @@ describe('D4 集成：五档一致 + simulate 同源', () => {
       );
       expect(toDecision(result)).toBe('deny');
     });
+
+    it(`${mode} 档：读凭据路径 ⇒ deny（读闸同为地板）`, async () => {
+      manager.setMode(mode);
+      const result = await manager.checkPermissionForTool('file_read', {
+        file_path: join(homedir(), '.ssh', 'id_rsa'),
+      });
+      expect(toDecision(result)).toBe('deny');
+    });
   }
+
+  it('default 档：显式工具级 allow 不能越过读闸', async () => {
+    manager.setMode('default');
+    manager.getRuleManager().addRule(
+      createPermissionRule({
+        behavior: PermissionBehavior.ALLOW,
+        toolName: 'file_read',
+        source: PermissionRuleSource.RULE_STORE,
+      })
+    );
+    const input = { file_path: join(homedir(), '.ssh', 'id_rsa') };
+
+    const executed = await manager.checkPermissionForTool('file_read', input);
+    const simulated = await manager.simulatePermission({
+      toolName: 'file_read',
+      input,
+      mode: 'default',
+    });
+
+    expect(toDecision(executed)).toBe('deny');
+    expect(simulated.decision).toBe('deny');
+  });
 
   it('default 档：工作区外写入 ⇒ ask（不是静默放行）', async () => {
     manager.setMode('default');

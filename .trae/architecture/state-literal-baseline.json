@@ -384,6 +384,7 @@
       "app/src/tasks/goal/TaskGoalStore.ts",
       "app/src/tasks/LocalBashTask.ts",
       "app/src/tasks/LongRunningTaskOrchestrator.ts",
+      "app/src/tasks/lro/planLoopResult.ts",
       "app/src/tasks/lro/reporting.ts",
       "app/src/tasks/lro/stepExecution.ts",
       "app/src/tasks/lro/stepReviewDecide.ts",
@@ -1239,6 +1240,7 @@
       "app/src/tasks/goal/TaskGoalStore.ts",
       "app/src/tasks/LocalBashTask.ts",
       "app/src/tasks/LongRunningTaskOrchestrator.ts",
+      "app/src/tasks/lro/planLoopResult.ts",
       "app/src/tasks/lro/reporting.ts",
       "app/src/tasks/lro/stepExecution.ts",
       "app/src/tasks/lro/stepReviewDecide.ts",
@@ -1771,6 +1773,7 @@
       "app/src/tasks/cron/CronRunLog.ts",
       "app/src/tasks/cron/DeliveryQueue.ts",
       "app/src/tasks/LongRunningTaskOrchestrator.ts",
+      "app/src/tasks/lro/planLoopResult.ts",
       "app/src/tasks/lro/resumeFromCheckpoint.ts",
       "app/src/tasks/lro/stepExecution.ts",
       "app/src/tasks/lro/stepReviewDecide.ts",
@@ -2462,8 +2465,8 @@
       "packages/service/src/execution/ExecutionStore.ts"
     ]
   },
-  "reason": "P2-3：PDCA 终态进度消息回写会话状态（completed/error 为既有词汇的合法新出现点）",
-  "generatedAt": "2026-11-27T17:45:21.291Z",
+  "reason": "2026-11-28：StepState/StepResult/PlanDrivenLoopResult 与汇总构建从 PlanDrivenLoop.ts 逐字外移到 lro/planLoopResult.ts（R04-001 例外 FSE-002 拆除）；三个状态词汇随实现搬家，未新增语义",
+  "generatedAt": "2026-11-27T23:28:08.789Z",
   "valueOwners": {
     "QUEUED": [
       "execution"

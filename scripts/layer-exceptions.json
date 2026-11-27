@@ -19,16 +19,7 @@
       "deprecatedAt": "2026-06-19"
     }
   ],
-  "fileSizeExceptions": [
-    {
-      "id": "FSE-002",
-      "ruleId": "R04-001",
-      "file": "app/src/tasks/PlanDrivenLoop.ts",
-      "plan": "P2-5（2026-11-28）新增非收敛失败步骤的计划级重跑簇（表 2105 行）：该文件改动前 1999 行、已到 2000 行边界。拆分计划＝把「步骤裁决 + 重跑 + 结果汇总」整簇外移到 app/src/tasks/lro/（该目录已有同类外移先例），完成后撤销本例外",
-      "expiresAt": "2027-03-31",
-      "owner": "@arch-lead"
-    }
-  ],
+  "fileSizeExceptions": [],
   "barrelExceptions": [
     {
       "id": "BRL-001",

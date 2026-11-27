@@ -54,6 +54,15 @@ import {
   isNonConvergedTermination,
   selectRerollCandidates,
 } from './lro/pureDecisions.js';
+// 2026-11-28（R04-001 / 例外 FSE-002 拆除）：步骤 prompt 与结果汇总外移（纯字符串/计数）
+import {
+  buildPlanLoopResult,
+  type BlockedStepInfo,
+  type PlanDrivenLoopResult,
+  type StepResult,
+  type StepState,
+} from './lro/planLoopResult.js';
+import { buildStepPrompt } from './lro/stepPromptAssembly.js';
 import { emitPdcaLiveEvent } from './PdcaLiveEvents.js';
 import { writePdcaCheckpoint } from './PdcaWorkItemBridge.js';
 import { goalMetricsService } from './db/GoalMetricsService.js';
@@ -88,29 +97,16 @@ const logger = getLogger('tasks:planDrivenLoop');
 
 // ─── 类型定义 ──────────────────────────────────────────
 
-/** 子任务执行状态 */
-export type StepState = 'pending' | 'in_progress' | 'completed' | 'failed';
-
-/** 单步执行结果 */
-export interface StepResult {
-  stepId: string;
-  description: string;
-  state: StepState;
-  output: string;
-  error?: string;
-  /**
-   * 2026-11-13（PDL 暂停态）：本步**停在等待工具审批**（不是失败）。
-   *
-   * 保留 `state='failed'` 以兼容既有呈现，但计数与文案一律按"暂停"处理
-   * （`_buildResult` 不把它计入 failedSteps）。
-   */
-  paused?: boolean;
-  /** P1-3（2026-09-06）：失败路线保留——终败前已产出片段（供 P0-2 重试/终局综合引用） */
-  partialOutput?: string;
-  durationMs: number;
-  turnCount: number;
-  tokenCount: number;
-}
+/**
+ * 2026-11-28（R04-001 / 例外 FSE-002 拆除）：步骤结果与汇总类型、以及汇总构建已外移到
+ * `./lro/planLoopResult`；此处继续 re-export，既有导入面（编排器 / 测试）零改动。
+ */
+export type {
+  BlockedStepInfo,
+  PlanDrivenLoopResult,
+  StepResult,
+  StepState,
+} from './lro/planLoopResult.js';
 
 /** TAORLoop 工厂可选参数（对齐 ChatManager._getOrCreateTAORLoop / PdcaLauncher.deps 契约） */
 export interface TAORLoopFactoryOptions {
@@ -250,9 +246,6 @@ const MAX_CONSECUTIVE_BLOCKED_STEPS = 2;
  */
 const REROLL_MAX_STEPS_PER_RUN = 3;
 
-/** P2-2（2026-11-06）：步骤 prompt 注入的任务源上限（防超长计划吃满上下文） */
-const MAX_STEP_PLAN_CHARS = 6000;
-
 /**
  * PR8（#9）：PDL run 级 token 总账上限——多步任务各 step 独立满额预算会导致
  * 总成本 ≈ 单步预算 × 步数而无 run 级护栏。env `PDCA_RUN_MAX_TOKENS`（0 = 不启用，
@@ -265,51 +258,6 @@ function pdlRunTokenCap(): number {
 
 /**
  * 13-P1-1：被依赖阻断（未执行）的步骤明细。
- * 供 `PlanDrivenLoopResult` 回灌——`PdcaLauncher` 据此落**模型可见**的会话消息（Step 2）。
- */
-export interface BlockedStepInfo {
-  stepId: string;
-  description: string;
-  /** 阻断原因（`[DEPENDENCY_BLOCKED]` 原因部分，来自 `computeTopoSkips`） */
-  reason: string;
-}
-
-/** PlanDrivenLoop 运行结果 */
-export interface PlanDrivenLoopResult {
-  /** 最终汇总文本 */
-  summary: string;
-  /** 是否使用了任务分解 */
-  decomposed: boolean;
-  /** 子任务数 */
-  stepCount: number;
-  /** 完成子任务数 */
-  completedSteps: number;
-  /** 失败子任务数 */
-  failedSteps: number;
-  /** 13-P1-1：因依赖阻断**未执行**的子任务数（plan 步 `cancelled`；不计入 completed/failed） */
-  skippedSteps: number;
-  /** 13-P1-1：被阻断步骤明细（模型可见回灌的载体，见 `BlockedStepInfo`） */
-  blockedSteps: BlockedStepInfo[];
-  /** 是否被用户中止（abort 不抛错、run 正常返回；上游据此写中止终态而非 completed） */
-  aborted?: boolean;
-  /** run 级 token 预算耗尽（成本护栏中止；上游按 failed 收尾而非 completed） */
-  budgetExhausted?: boolean;
-  /**
-   * 2026-11-13：**停在等待工具审批**（不是失败、也不是完成）。
-   *
-   * 上游据此写"暂停"回执/检查点相位（`stage_awaiting_approval`），而不是把
-   * "等用户批准"粉饰成"任务已结束"（会话 `session_mwdcivrue74d4838ff` 的用户可见问题）。
-   */
-  pausedForApproval?: boolean;
-  /** 总耗时 ms */
-  totalDurationMs: number;
-  /** 总 token 数 */
-  totalTokens: number;
-  /** 各步骤结果 */
-  stepResults: StepResult[];
-}
-
-// ─── 复杂度判定（S0 结构化判定 / T-②05 判据配置化，CS02 合规）──────────────
 
 /**
  * 任务复杂度（可持久化枚举标记）
@@ -1899,7 +1847,7 @@ export class PlanDrivenLoop {
     return { predecessorSummary, degradedNote };
   }
 
-  /** 构建步骤执行的 prompt（P0-1：可注入依赖前驱产出摘要；P0-2：可携带上次失败 objection） */
+  /** 构建步骤执行的 prompt（2026-11-28：实现外移到 `./lro/stepPromptAssembly`，此处只注入 run 上下文） */
   private _buildStepPrompt(
     task: { id: string; description: string },
     allTasks: Array<{ id: string; description: string }>,
@@ -1907,56 +1855,17 @@ export class PlanDrivenLoop {
     predecessorSummary?: string,
     retryError?: string
   ): string {
-    const total = allTasks.length;
-    const completed = allTasks
-      .slice(0, index)
-      .map((t) => `- [已完成] ${t.description}`)
-      .join('\n');
-
-    return [
-      `你正在执行一个多步骤任务。当前是步骤 ${index + 1}/${total}。`,
-      // 2026-11-02：**总体目标锚点**。此前步骤只拿到"本步描述"与已完成步骤，
-      // 分解失准（例如被无目标消息触发而分解出"澄清型"步骤）时，每步都会重新向用户
-      // 要信息（会话导出实证：5 步全部"信息不足"）⇒ 用计划描述把每步锚回原始目标。
-      // P2-2（2026-11-06）：改用**完整任务源**（含助手计划正文）——`plan.description`
-      // 只有 200 字，计划正文会被截掉；真机 step1 因此"找不到执行计划"直接 blocked。
-      (() => {
-        const goal = (this.planSource || this.plan?.description || '')
-          .trim()
-          .slice(0, MAX_STEP_PLAN_CHARS);
-        return goal ? `本次任务总体目标与已确认计划：\n${goal}` : '';
-      })(),
-      // P2-2：工作区与工具可用性 —— 真机 step1 自述"没有文件路径/工具"（5 秒 blocked）
-      this.workspacePath
-        ? `工作区（所有文件读写以此目录为准）：${this.workspacePath}`
-        : '',
-      '如需查看/修改文件，请直接调用当前可用的文件/终端工具；若确实不可用，错误信息会说明原因。',
-      '',
-      // Teamwork P2b（2026-09-06）：首步注入同类历史 pitfall（避免重蹈覆辙；仅首步一次）
-      index === 0 && this._pitfallContext
-        ? `[历史经验（同类任务曾失败于此）]\n${this._pitfallContext}\n`
-        : '',
-      '已完成步骤：',
-      completed || '（无）',
-      predecessorSummary
-        ? `\n依赖前驱结果（本步可直接使用）：\n${predecessorSummary}`
-        : '',
-      '',
-      `当前步骤：${task.description}`,
-      '',
-      retryError
-        ? `[上一步尝试失败] ${retryError.slice(0, 800)}\n请勿重复失败路线；若不可行请给出替代方案，或明确告知 blocker。`
-        : '请只执行当前步骤，完成后汇报结果。不要执行后续步骤。',
-      '',
-      // 2026-11-02（长程任务"假成功"根因修复）：结论标记是**必填契约**。
-      // 此前步骤终态只由"LLM 回合是否正常返回文本"决定 ⇒ 自述"信息不足/阻塞"的步骤
-      // 也被记为 completed，5 步全空转仍播报"执行完成"。判定改读此结构化标记（非关键词匹配）。
-      '[结论标记（必填，放在回答最后一行）]',
-      '[STEP_STATUS: step_done]    ← 本步目标已达成',
-      '[STEP_STATUS: step_blocked] [STEP_BLOCKED: 缺什么信息 / 需要谁决策 / 哪个工具不可用]',
-      '[STEP_STATUS: step_partial] ← 只完成了一部分，并说明还差什么',
-      '注意：目标未达成时**不得**标 step_done（缺信息就用 step_blocked，不要用"已完成"掩盖）。',
-    ].join('\n');
+    return buildStepPrompt({
+      task,
+      allTasks,
+      index,
+      predecessorSummary,
+      retryError,
+      planSource: this.planSource,
+      planDescription: this.plan?.description,
+      workspacePath: this.workspacePath,
+      pitfallContext: this._pitfallContext,
+    });
   }
 
   /** 通知进度更新 */
@@ -2035,70 +1944,23 @@ export class PlanDrivenLoop {
     }
   }
 
-  /** 构建最终结果 */
+  /** 构建最终结果（2026-11-28：实现随类型外移到 `./lro/planLoopResult`，此处只投影本次 run 状态） */
   private _buildResult(
     decomposed: boolean,
     stepResults: StepResult[],
     totalSteps: number = stepResults.length,
     blockedSteps: readonly BlockedStepInfo[] = []
   ): PlanDrivenLoopResult {
-    const completed = stepResults.filter((r) => r.state === 'completed').length;
-    // 2026-11-13：等待审批的步骤不算失败（否则回执/汇总会把"等用户批"粉饰成未达成）
-    const failed = stepResults.filter(
-      (r) => r.state === 'failed' && r.paused !== true
-    ).length;
-    const blocked = blockedSteps.length;
-    // 2026-11-02：因"连续受阻熔断"**未执行**的步骤（既不在 stepResults，也不在依赖阻断明细）
-    const cascadeSkipped = Math.max(
-      0,
-      totalSteps - stepResults.length - blocked
-    );
-
-    let summary: string;
-    if (this.pausedForApproval) {
-      // 用户可见口径：暂停 ≠ 失败 ≠ 完成（会话 `session_mwdcivrue74d4838ff`）
-      summary = `任务暂停：等待工具审批（${completed}/${totalSteps} 步完成；批准后自动续跑，剩余步骤未执行）`;
-    } else if (decomposed) {
-      // 轮数/总 token 等内部指标不进入 summary（用户可见），仅留在 StepResult 字段与日志
-      // 13-P1-1 Step 2（2026-10-06）：分母改用**真实子任务数**——被阻断步骤不进 stepResults，
-      // 原 `stepResults.length` 会把"2/4 被阻断"粉饰成"2/2 步骤成功"（CS06：不粉饰）。
-      // 2026-11-02：**只有全部达成才可用"执行完成"** —— 0/2 步达成还说"执行完成"是新的一层粉饰。
-      const allAchieved = totalSteps > 0 && completed === totalSteps;
-      const parts = [
-        allAchieved
-          ? `任务分解执行完成：${completed}/${totalSteps} 步骤成功`
-          : `任务分解执行结束：${completed}/${totalSteps} 步骤达成`,
-        failed > 0 ? `，${failed} 步骤未达成` : '',
-        blocked > 0 ? `，${blocked} 步骤因依赖阻断未执行` : '',
-        cascadeSkipped > 0 ? `，${cascadeSkipped} 步骤因连续受阻提前终止` : '',
-        `。总耗时 ${((Date.now() - this.startTime) / 1000).toFixed(1)}s`,
-      ];
-      summary = parts.join('');
-      // 13-P1-1 Step 2：**阻断原因回灌** —— `[DEPENDENCY_BLOCKED]` 原先只落 plan 步 + SSE
-      // （用户可见），模型侧完全不可见（F8 取证）⇒ 随 summary 进入会话消息。
-      if (blocked > 0) {
-        summary += `\n[依赖阻断明细]\n${blockedSteps
-          .map((b) => `- ${b.description}：${b.reason}`)
-          .join('\n')}`;
-      }
-    } else {
-      summary = stepResults[0]?.output || '任务完成';
-    }
-
-    return {
-      summary,
+    return buildPlanLoopResult({
       decomposed,
-      stepCount: stepResults.length,
-      completedSteps: completed,
-      failedSteps: failed,
-      skippedSteps: blocked,
-      blockedSteps: [...blockedSteps],
+      stepResults,
+      totalSteps,
+      blockedSteps,
+      pausedForApproval: this.pausedForApproval,
       aborted: this.aborted,
       budgetExhausted: this.budgetExhausted,
-      pausedForApproval: this.pausedForApproval,
-      totalDurationMs: Date.now() - this.startTime,
       totalTokens: this.totalTokens,
-      stepResults,
-    };
+      startTime: this.startTime,
+    });
   }
 }

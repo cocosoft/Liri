@@ -191,6 +191,11 @@ async function main(): Promise<void> {
       '/etc',
       '/private/etc',
       '/System',
+      // 2026-11-27 第 1 轮采集：18 条候选下所有负载 `exit=null`（连 shell 都起不来）
+      // ⇒ 缺的是 dyld 共享缓存所在的内核视图（macOS 13+ 的 cryptex / preboot）。
+      '/System/Volumes/Preboot',
+      '/private/preboot',
+      '/private/var/db/dyld',
       '/Library',
       '/private/var/db',
       '/dev',

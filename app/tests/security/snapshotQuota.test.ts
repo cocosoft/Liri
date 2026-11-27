@@ -26,6 +26,7 @@ import {
   ensureSnapshotDirs,
   getManifestPath,
   getSnapshotsRoot,
+  loadSnapshot,
   saveManifest,
 } from '@openliri/infra/security/rollback/SnapshotStorage';
 import { enforceSnapshotQuota } from '@openliri/infra/security/rollback/CleanupManager';
@@ -111,5 +112,37 @@ describe('enforceSnapshotQuota：巡检可见性与淘汰语义', () => {
 
     expect(result).toEqual({ cleaned: 0, freedBytes: 0 });
     expect(existsSync(getManifestPath('s1', 1))).toBe(true);
+  });
+});
+
+/**
+ * 2026-11-28（真机 `session_mwz477wj251057474e` round 79）：**「本轮无快照」≠「加载失败」**。
+ *
+ * 现场：该 round 目录只有空 `backups/`（`onRoundStart` 建过），回合以 aborted 收尾从未
+ * `onRoundEnd` 写 manifest ⇒ 每次 `loadSnapshot(79)` 都打一条 `warn 加载快照失败`（31 次）。
+ * 口径：ENOENT ⇒ debug + `null`（"没有"）；其它错误仍 warn；checksum 不匹配仍 error。
+ */
+describe('loadSnapshot：无快照返回 null（不刷 warn）', () => {
+  it('round 目录/清单不存在 ⇒ 返回 null 且不抛错', async () => {
+    await expect(loadSnapshot('sess-no-snapshot', 79)).resolves.toBeNull();
+  });
+
+  it('只有空 backups 目录（aborted 回合残留）⇒ 同样返回 null', async () => {
+    await ensureSnapshotDirs('sess-aborted-round', 79);
+    await expect(loadSnapshot('sess-aborted-round', 79)).resolves.toBeNull();
+  });
+
+  it('正路不回归：已落盘快照仍能读回', async () => {
+    const snap = makeSnapshot(
+      'sess-has-snapshot',
+      3,
+      new Date().toISOString(),
+      1
+    );
+    await ensureSnapshotDirs(snap.sessionId, snap.roundId);
+    await saveManifest(snap);
+    const loaded = await loadSnapshot(snap.sessionId, snap.roundId);
+    expect(loaded?.roundId).toBe(3);
+    expect(loaded?.sessionId).toBe('sess-has-snapshot');
   });
 });

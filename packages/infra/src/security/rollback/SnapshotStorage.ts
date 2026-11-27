@@ -180,6 +180,16 @@ async function loadManifest(
 
     return manifest;
   } catch (error) {
+    // 2026-11-28（真机 `session_mwz477wj251057474e` round 79，同一会话 warn 31 次）：
+    // **「本轮没有快照」是正常状态**，不是"加载失败" —— round 已 `onRoundStart`（建了空
+    // `backups/`）但回合以 aborted/circuit_breaker 收尾、从未 `onRoundEnd` 写 manifest。
+    // ENOENT 归为"没有"⇒ debug；其余（权限 / EIO / JSON 坏行）仍按 warn 留痕；
+    // checksum 不匹配已在上方按 error 记录。
+    const code = (error as NodeJS.ErrnoException | undefined)?.code;
+    if (code === 'ENOENT') {
+      logger.debug('快照清单不存在（本轮无快照）', { sessionId, roundId });
+      return null;
+    }
     logger.warn('加载快照失败', { sessionId, roundId, error: String(error) });
     return null;
   }

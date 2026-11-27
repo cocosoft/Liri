@@ -28,7 +28,9 @@ runs:
         # 2026-11-27 实证：旧锁的 node_modules 被前缀回退恢复后，`bun install` 不会剔除
         # 「已从依赖里移除」的包 ⇒ `lint:license` 扫到幽灵包 `msg.js@0.0.2`（无 license）
         # 直接把 Static Checks 判红。宁可在锁变更时全量重装，也不接受跨锁混用。
-        key: ${{ runner.os }}-bun-${{ hashFiles(format('{0}/bun.lock', inputs.project)) }}
+        # `v2` 是**缓存世代盐**：旧键里已经被"回退 + 不剔除"污染（同键仍含幽灵包），
+        # 加盐后强制重建一次干净树；后续只有真正改锁才会换键。
+        key: ${{ runner.os }}-bun-v2-${{ hashFiles(format('{0}/bun.lock', inputs.project)) }}
 
     - name: Install dependencies
       shell: bash

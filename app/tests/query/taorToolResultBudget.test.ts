@@ -53,10 +53,19 @@ describe('shrinkOversizedRawResults — 工具结果体积闸', () => {
 
   it('单条超限 ⇒ 落盘 + 结果替换为预览与路径引用', async () => {
     const big = 'x'.repeat(SINGLE_RESULT_LIMIT_CHARS + 5_000);
+    // 2026-11-27（CI 全量实证）：不能用 `file_read` —— 它声明了 `maxResultSizeChars: Infinity`
+    // （工具自身已有内部上限 ⇒ 此处刻意不截断）。单跑时工具注册表为空 ⇒ 回退全局 50k ⇒ 用例"碰巧绿"；
+    // 全量跑时注册表已被其它测试文件填充 ⇒ 上限变 Infinity ⇒ 不 spill ⇒ 假红。
+    // 这里用**未注册**的名字，钉住"缺省 50k 预算"本身，不依赖全局注册表状态。
     const rawResults: Array<Raw | undefined> = [
-      { toolCallId: 'c-big', result: { success: true, content: big } },
+      {
+        toolCallId: 'c-big',
+        result: { success: true, content: big },
+      },
     ];
-    await shrinkOversizedRawResults(rawResults, [call('c-big')]);
+    await shrinkOversizedRawResults(rawResults, [
+      { id: 'c-big', name: 'tool_without_declared_limit' },
+    ]);
 
     const replaced = rawResults[0] as Raw;
     const preview = replaced.result as string;

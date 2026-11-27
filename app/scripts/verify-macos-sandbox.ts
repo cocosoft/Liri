@@ -111,6 +111,40 @@ async function main(): Promise<void> {
     detail: `exit=${exit125.exitCode} sandboxInitFailed=${exit125.sandboxInitFailed}`,
   });
 
+  // ────────────────────────────────────────────────────────────────
+  // ⑤ **非阻断诊断**（2026-11-27）：限制登记见 `macos-sandbox-exec.md` §3.6 ——
+  //    生产 profile 下 `bun -e` 被沙箱终止（`exec_error: 未取到退出码`），而 `node --version` 正常。
+  //    本段用**生产同口径**的白名单（allowDir + tmpdir + /dev + 网络开），逐个追加候选能力，
+  //    打印哪种组合能让内联运行时跑通 —— 只为拿证据，**不参与判定、不改退出码**。
+  // ────────────────────────────────────────────────────────────────
+  const diagBase = buildMacOSSandboxProfile({
+    writablePaths: [allowDir, tmpdir(), '/dev'],
+  });
+  const cands: Array<{ name: string; extra: string }> = [
+    { name: 'base', extra: '' },
+    { name: '+mach-lookup', extra: '(allow mach-lookup)' },
+    { name: '+sysctl-read', extra: '(allow sysctl-read)' },
+    { name: '+ipc-posix-shm', extra: '(allow ipc-posix-shm)' },
+    { name: '+all3', extra: '(allow mach-lookup)\n(allow sysctl-read)\n(allow ipc-posix-shm)' },
+  ];
+  for (const c of cands) {
+    try {
+      const r = await runWithSandboxExec({
+        profile: c.extra ? `${diagBase}\n${c.extra}` : diagBase,
+        command: `bun -e "console.log('diag-ok')"`,
+        timeoutMs: TIMEOUT_MS,
+        maxBufferChars: MAX_BUFFER_CHARS,
+      });
+      console.log(
+        `[diag] bun -e ${c.name} => exit=${r.exitCode} initFailed=${r.sandboxInitFailed} ` +
+          `stdout=${r.stdout.trim().slice(0, 40) || '—'} stderr=${r.stderr.trim().slice(0, 160) || '—'}`
+      );
+    } catch (err) {
+      // @ignore-catch — 诊断段失败不得影响自证结论
+      console.log(`[diag] bun -e ${c.name} => 抛错 ${String(err).slice(0, 160)}`);
+    }
+  }
+
   rmSync(allowDir, { recursive: true, force: true });
   rmSync(denyDir, { recursive: true, force: true });
 

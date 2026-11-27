@@ -63,6 +63,39 @@ describe('D4 判定单元：evaluateProtectedWritePath', () => {
   });
 });
 
+describe('D4 判定单元：生成类工具的输出路径同样过写闸（2026-11-27 补覆盖）', () => {
+  it('pdf / image / video 写受保护目录 ⇒ 命中', () => {
+    expect(
+      evaluateProtectedWritePath('pdf', {
+        filepath: join(homedir(), '.ssh', 'x.pdf'),
+      })
+    ).not.toBeNull();
+    expect(
+      evaluateProtectedWritePath('image', {
+        outputPath: join(homedir(), '.aws', 'x.png'),
+      })
+    ).not.toBeNull();
+    expect(
+      evaluateProtectedWritePath('video', {
+        outputPath: join(homedir(), '.kube', 'x.mp4'),
+      })
+    ).not.toBeNull();
+  });
+
+  it('普通输出目录 / 非写类工具 ⇒ 不命中（零行为变更）', () => {
+    expect(
+      evaluateProtectedWritePath('image', {
+        outputPath: join(tmpdir(), 'ok.png'),
+      })
+    ).toBeNull();
+    expect(
+      evaluateProtectedWritePath('web_fetch', {
+        outputPath: join(homedir(), '.ssh'),
+      })
+    ).toBeNull();
+  });
+});
+
 describe('D4 判定单元：evaluateOutOfWorkspaceWrite', () => {
   const ws = join(tmpdir(), 'd4-ws');
 
@@ -226,6 +259,14 @@ describe('D4 集成：五档一致 + simulate 同源', () => {
 
     expect(toDecision(executed)).toBe('deny');
     expect(simulated.decision).toBe('deny');
+  });
+
+  it('bypass 档：生成类工具写受保护路径 ⇒ deny（地板不随档位放宽）', async () => {
+    manager.setMode('bypass');
+    const result = await manager.checkPermissionForTool('image', {
+      outputPath: join(homedir(), '.ssh', 'x.png'),
+    });
+    expect(toDecision(result)).toBe('deny');
   });
 
   it('default 档：工作区外写入 ⇒ ask（不是静默放行）', async () => {

@@ -40,6 +40,13 @@ export const WRITE_PATH_GATED_TOOLS: ReadonlySet<string> = new Set([
   'file_edit',
   'file_convert',
   'write_project_file',
+  // 2026-11-27（覆盖率补齐）：生成类工具同样接受**用户给的输出路径**，此前不在写闸里
+  // ⇒ 可把产物写到 `~/.ssh` / `/etc` 等受保护位置。只 deny 受保护路径，不影响正常输出目录。
+  'pdf',
+  'canvas',
+  'image',
+  'music',
+  'video',
 ]);
 
 /**
@@ -70,6 +77,9 @@ const PATH_ARG_KEYS = [
   'source_path',
   'new_path',
   'destination',
+  // 生成类工具的命名（`pdf` 用 `filepath`；`image`/`music`/`video`/`canvas` 用 `outputPath`）
+  'filepath',
+  'outputPath',
 ] as const;
 
 /** 读类工具额外的路径键（`code_analysis` 用 `target` 表示分析目标） */

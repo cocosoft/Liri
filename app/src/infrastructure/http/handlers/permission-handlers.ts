@@ -814,6 +814,8 @@ type ParsedSimulateBody = {
   mode?: SimulatablePermissionMode;
   autonomy?: 'interactive' | 'demand';
   workspaceRoots?: string[];
+  /** F2（2026-11-27）：会话 id —— 让「按会话暂停」在模拟里与执行同口径 */
+  sessionId?: string;
 };
 
 /**
@@ -883,6 +885,14 @@ function parseSimulateBody(
     return { ok: false, message: 'workspaceRoots 必须是字符串数组' };
   }
 
+  const rawSessionId = raw['sessionId'];
+  if (
+    rawSessionId !== undefined &&
+    (typeof rawSessionId !== 'string' || rawSessionId.trim() === '')
+  ) {
+    return { ok: false, message: 'sessionId 必须是非空字符串' };
+  }
+
   return {
     ok: true,
     value: {
@@ -892,6 +902,9 @@ function parseSimulateBody(
       ...(autonomy !== undefined ? { autonomy } : {}),
       ...(rawRoots !== undefined
         ? { workspaceRoots: rawRoots as string[] }
+        : {}),
+      ...(typeof rawSessionId === 'string'
+        ? { sessionId: rawSessionId.trim() }
         : {}),
     },
   };

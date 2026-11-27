@@ -69,6 +69,13 @@ export interface SimulatePermissionRequest {
   autonomy?: 'interactive' | 'demand';
   /** 会话工作区根（用于 `workspaceRoot` 规则的匹配闸） */
   workspaceRoots?: string[];
+  /**
+   * 会话 id（F2，2026-11-27）：用于「按会话暂停审批规则」的同源判定。
+   *
+   * 执行链的 `ruleContext.pauseScope` 一直带 `sessionId`，模拟此前只带工作区根
+   * ⇒ 被暂停的会话里"执行 deny（或收紧）、模拟仍按旧规则给 allow"。不传 ⇒ 只按全局暂停。
+   */
+  sessionId?: string;
 }
 
 /** B 体系（`permission.customRules.commandRules`）对本次命令的结论（只读展示） */
@@ -196,13 +203,20 @@ export async function simulatePermissionDecision(
     permissionMode: mode,
     autonomy: request.autonomy,
     workspaceRoots: request.workspaceRoots,
+    ...(request.sessionId ? { sessionId: request.sessionId } : {}),
   });
-  const ruleContext = toRuleContext(
-    deps.toolPermissionContext,
-    request.workspaceRoots
-      ? { workspaceRoots: request.workspaceRoots }
-      : undefined
-  );
+  // F2（2026-11-27）：与执行链同口径 —— 暂停范围带上**会话 id**（此前只带工作区根，
+  // 导致「按会话暂停」在模拟里不生效：执行已收紧、模拟仍按旧规则给 allow）。
+  const pauseScope: ApprovalPauseScope | undefined =
+    request.sessionId || request.workspaceRoots
+      ? {
+          ...(request.sessionId ? { sessionId: request.sessionId } : {}),
+          ...(request.workspaceRoots
+            ? { workspaceRoots: request.workspaceRoots }
+            : {}),
+        }
+      : undefined;
+  const ruleContext = toRuleContext(deps.toolPermissionContext, pauseScope);
 
   // 与真实判定链**同一处理器**；差异仅在依赖侧：新建拒绝跟踪器（不污染真实计数），
   // RBAC 回调返回空（无请求级身份可用）。

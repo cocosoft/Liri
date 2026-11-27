@@ -255,4 +255,41 @@ describe('F2：模拟按工作区暂停（与真实链同口径）', () => {
     });
     expect(other.decision).toBe('deny');
   });
+
+  it('会话在暂停列表 ⇒ 模拟与真实执行同结论（此前模拟缺 sessionId ⇒ 仍 deny）', async () => {
+    configSpy = spyOn(getConfigManager(), 'getValue').mockImplementation(((
+      key: string
+    ) =>
+      key === APPROVAL_PAUSE_CONFIG_KEY
+        ? { global: false, sessions: ['s-paused'], workspaces: [] }
+        : undefined) as unknown as typeof configManager.getValue);
+
+    const input = { command: 'git status' };
+    const simulated = await manager.simulatePermission({
+      toolName: 'bash',
+      input,
+      mode: 'default',
+      sessionId: 's-paused',
+    });
+    const executed = await manager.checkPermissionForTool('bash', input, {
+      sessionId: 's-paused',
+    });
+    const executedDecision = executed.allowed
+      ? 'allow'
+      : executed.decision?.behavior === 'ask'
+        ? 'ask'
+        : 'deny';
+
+    expect(simulated.decision).toBe(executedDecision);
+    expect(simulated.decision).toBe('allow');
+
+    // 其他会话不受暂停影响：审批 deny 仍生效
+    const other = await manager.simulatePermission({
+      toolName: 'bash',
+      input,
+      mode: 'default',
+      sessionId: 's-other',
+    });
+    expect(other.decision).toBe('deny');
+  });
 });

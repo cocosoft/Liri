@@ -100,6 +100,15 @@ describe('CanvasTool', () => {
       };
       const result = await tool.execute(input, {} as any);
       expect(result.success).toBe(false);
+      // P1-3（2026-11-28）：错误必须点明"只吃位图 + 正路"，否则模型只会换写法重试
+      expect(String(result.error ?? '')).toContain('raster only');
+      expect(String(result.error ?? '')).toContain('image_svg_generate');
+    });
+
+    it('描述声明 SVG 能力边界（P1-3）', () => {
+      const tool = new CanvasTool();
+      expect(tool.description).toMatch(/RASTER/i);
+      expect(tool.description).toContain('image_svg_generate');
     });
 
     it('默认宽高应为 800x600', async () => {

@@ -26,7 +26,10 @@ import {
 } from '@modules/tools';
 import type { ToolDefinition } from '@modules/ai';
 import { isLocalLlmEndpoint } from '../services/ChatHelper.js';
-import { isExecutionTaskIntent } from '../taskIntent.js';
+import {
+  isExecutionTaskIntent,
+  hasImageArtifactIntent,
+} from '../taskIntent.js';
 
 export interface ToolSelectionInput {
   /** 全量工具定义（调用方此前可能已注入 `session_lookup` 等） */
@@ -95,6 +98,11 @@ export interface ToolSelectionResult {
   taskType: string | undefined;
   /** 是否因【项目会话 + 执行意图】被提升为 `coding`（供调用方留痕） */
   promotedByExecutionIntent: boolean;
+  /**
+   * P1-1（2026-11-28）：是否因【无图但为造图请求】追加了 `image` 类别（供调用方留痕/观测）：
+   * 仅当 `hasImages=false` 且 `hasImageArtifactIntent(lastUserText)` 为真。
+   */
+  imageIntentPromoted: boolean;
   /** 裁剪后的工具集 */
   tools: ToolDefinition[];
   /** 被裁掉的工具名（与原实现同口径：原顺序，`function.name ?? ''`） */
@@ -144,6 +152,8 @@ function appendDiscoveredTools<T extends { function?: { name?: string } }>(
  *    （BashTool/ApprovedCommandRegistry），安全底线不变。
  * 4. **D7/L2**：带图消息追加 `'image'` 额外类别 —— 否则 default/chat 集不含 image 类别，
  *    裁剪后模型函数列表无 image_analysis ⇒ 识图链路不可用（会话实录实证）。
+ *    P1-1（2026-11-28）：**不带图但要求造图**（`hasImageArtifactIntent`）同样追加 ⇒
+ *    `image_svg_generate` 等生图工具可见，不再迫使模型用 bash 自寻渲染器。
  * 5. **TG-4 / T1-13**（2026-10-13）：会话 profile 能力标签（`session.metadata.toolProfile`）经
  *    `resolveToolProfileCategories` 映射为**追加类别**（如 `media` ⇒ `image`/`video`/`media`）——
  *    即「会话显式声明能力 ⇒ 动态追加可见工具」；**未声明 ⇒ 无追加 ⇒ 零行为变更**。
@@ -173,8 +183,13 @@ export function selectToolsForTurn(
   }
   // TG-4 / T1-13（2026-10-13）：会话 profile 声明的能力**追加**可见类别（与 D7/L2 的 image 追加同口径）；
   // 未声明 ⇒ `[]` ⇒ 与拆分前逐字等价（零行为变更）。
+  // P1-1（2026-11-28，真机 session_mwz477wj251057474e）：**造图意图**也追加 `image` 类别 ——
+  // 原判据只看"本轮带没带图"，用户让"画一张 SVG"时 `hasImages=false` ⇒ 生图/图像工具全被裁，
+  // 模型只能 tool_search + bash 自己找渲染器（38 次调用、15 次失败、circuit_breaker）。
+  const imageIntentPromoted =
+    !input.hasImages && hasImageArtifactIntent(input.lastUserText);
   const extraCategories: ToolCategory[] = [
-    ...(input.hasImages ? ['image' as const] : []),
+    ...(input.hasImages || imageIntentPromoted ? ['image' as const] : []),
     ...resolveToolProfileCategories(input.profile),
   ];
   // P2（2026-10-16）：用户覆写层 —— **切在 `filterToolsByTask` 之后**（§3.3），故既有裁剪
@@ -227,6 +242,7 @@ export function selectToolsForTurn(
   return {
     taskType,
     promotedByExecutionIntent,
+    imageIntentPromoted,
     tools: visibleTools,
     removedNames,
     trimmed: visibleTools.length !== tools.length,

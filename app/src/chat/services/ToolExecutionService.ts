@@ -878,6 +878,9 @@ export class ToolExecutionService {
       deps: {
         imageContextService: this.deps.imageContextService,
         getSession: (sessionId) => this.deps.chatSessions.get(sessionId),
+        // P1-2（2026-11-28）：工作区内图件放行（模型自己写出的 SVG 等可被 image 工具读回）
+        getSessionWorkspacePath: (sessionId) =>
+          this.deps.getSessionWorkspacePath(sessionId),
       },
     });
     if (imageGuard.result) return imageGuard.result;

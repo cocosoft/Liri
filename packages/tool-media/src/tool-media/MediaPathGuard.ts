@@ -80,7 +80,12 @@ export function resolveSafePath(inputPath: string): PathCheckResult {
     });
     return {
       valid: false,
-      error: `路径不在允许的目录范围内: ${normalized}`,
+      // P1-2（2026-11-28）：错误里**列出允许目录** —— 原文案只说"不在允许范围"，
+      // 模型只能反复换路径试（真机 session_mwz477wj251057474e 即因此空转）。
+      error:
+        `路径不在允许的目录范围内: ${normalized}\n` +
+        `允许目录: ${ALLOWED_BASE_DIRS.join('、')}\n` +
+        '提示: 生成图片请用 image_svg_generate / image_generate（产物落在允许目录）；工作区内文件可用 image 工具处理。',
     };
   }
 

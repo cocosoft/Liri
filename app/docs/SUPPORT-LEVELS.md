@@ -92,7 +92,7 @@
 | `file_write` | core | `app/tests/tools/fileWriteReadBeforeWrite.test.ts`（测试文件名） | write · pass |
 | `glob` | core | `app/tests/tools/GlobTool/GlobTool-braces.test.ts`（测试文件名） | read · pass |
 | `grep` | core | `app/tests/commands/grepArgsParity.test.ts`（测试文件名） | read · pass |
-| `image` | core | `app/tests/tools/imageSafetyFilter.test.ts`（测试文件名） | write · pass |
+| `image` | core | `app/tests/chat/imagePathGuard.test.ts`（测试文件名） | write · pass |
 | `image_analysis` | community | —（无专属测试） | read · pass |
 | `image_display` | community | —（无专属测试） | read · pass |
 | `image_generate` | community | —（无专属测试） | write · pass |

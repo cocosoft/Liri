@@ -169,7 +169,15 @@ export class CanvasTool extends BaseTool {
     '  - fontSize: font size for text (optional, number, default 16)\n' +
     '  - opacity: 0.0-1.0 (optional)\n' +
     '  - points: array of {x,y} for line/path elements (optional)\n' +
-    'Example: { type: "rect", x: 10, y: 20, width: 100, height: 50, fillColor: "#4A90D9" }';
+    'Example: { type: "rect", x: 10, y: 20, width: 100, height: 50, fillColor: "#4A90D9" }\n\n' +
+    // P1-3（2026-11-28，真机 session_mwz477wj251057474e）：能力边界必须写明 ——
+    // 该轮模型拿 canvas 去"导入 SVG 再导出 PNG"，连续 4 次失败（import 需 image 元素；
+    // 导出时 SVG 解码不被 sharp 支持），并因此把整轮拖进渲染器试错。
+    'Capability boundary: image elements must be RASTER files (png/jpeg/webp); ' +
+    'an SVG file cannot be imported as an image element, and exporting a canvas that ' +
+    'embeds SVG data fails with "unsupported image format". ' +
+    'To CREATE an SVG use image_svg_generate; to convert an existing SVG use the image ' +
+    'tool (action=convert), not canvas.';
 
   /** U-03（2026-10-19）：模型可见出参结构（canvasId/尺寸/元素数/导出路径） */
   override outputJsonSchema = CANVAS_OUTPUT_JSON_SCHEMA;
@@ -468,7 +476,10 @@ export class CanvasTool extends BaseTool {
     if (!input.elements || input.elements.length === 0) {
       return {
         success: false,
-        error: 'Import requires at least one image element with src',
+        // P1-3：给出能力边界与正路（原文案只说"需要 image 元素"，模型只会换写法重试）
+        error:
+          'Import requires at least one image element with src (raster only: png/jpeg/webp). ' +
+          'To create an SVG use image_svg_generate; to convert an SVG use the image tool (action=convert).',
       };
     }
 
@@ -476,7 +487,9 @@ export class CanvasTool extends BaseTool {
     if (!imgElem.src) {
       return {
         success: false,
-        error: 'Import requires element.src (file path)',
+        error:
+          'Import requires element.src (file path to a raster png/jpeg/webp). ' +
+          'SVG sources are not supported by canvas.',
       };
     }
 

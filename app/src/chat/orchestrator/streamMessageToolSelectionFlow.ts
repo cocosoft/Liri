@@ -154,6 +154,8 @@ export function selectAndObserveToolDefinitions(
         taskType: selection.taskType ?? 'default',
         surface: surface ?? 'replay',
         hasImages,
+        // P1-1（2026-11-28）：无图但为造图请求时 `image` 类被保留（留痕便于核对工具面）
+        imageIntentPromoted: selection.imageIntentPromoted,
         before: toolDefinitions.length,
         after: selection.tools.length,
         removedNames: selection.removedNames,

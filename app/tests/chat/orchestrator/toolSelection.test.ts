@@ -97,6 +97,27 @@ describe('P2-1i S3 本轮工具集选择 · 任务类型判定 + 裁剪', () => 
     );
   });
 
+  /**
+   * P1-1（2026-11-28，真机 `session_mwz477wj251057474e`）：**不带图的造图请求**同样追加
+   * `image` 类 —— 否则"画一张 SVG"只能靠 bash 自寻渲染器（38 次调用 / 15 次失败 / 熔断）。
+   */
+  it('造图意图（无附图）⇒ 保留 `image` 类并留痕 `imageIntentPromoted`', () => {
+    const r = run({
+      hasImages: false,
+      lastUserText: '你画一张鹈鹕骑自行车的图片。SVG的吧。',
+    });
+    expect(r.imageIntentPromoted).toBe(true);
+    expect(r.tools.map((t) => t.function?.name)).toContain('image_analysis');
+  });
+
+  it('识图 / 普通提问 ⇒ 不触发造图提升（零行为变更）', () => {
+    const r = run({ hasImages: false, lastUserText: '这张图里有啥？' });
+    expect(r.imageIntentPromoted).toBe(false);
+    expect(r.tools.map((t) => t.function?.name)).not.toContain(
+      'image_analysis'
+    );
+  });
+
   it('无裁剪（全部命中白名单）⇒ `trimmed=false` 且 `removedNames=[]`', () => {
     const r = run({ tools: [def('file_read'), def('grep')] });
     expect(r.trimmed).toBe(false);

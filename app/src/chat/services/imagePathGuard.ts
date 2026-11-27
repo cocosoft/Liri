@@ -8,6 +8,7 @@
  *  ① `inputPath` 缺省时从图像上下文（最近分析/生成/编辑）自动补全；
  *  ② 已知图像路径集合 = 会话内已知路径 + 项目沙箱目录扫描（深度 ≤3、上限 200、跳过 `_` 目录）；
  *  ③ 不在已知集合 ⇒ 先自动修正到最接近路径（告警）；无法修正 ⇒ 拒绝执行并回可读错误。
+ *  ④ P1-2（2026-11-28）：**位于会话工作区内的绝对路径**直接放行（模型自己写的图件）。
  *
  * 为什么独立成模块：`_executeInternal` 圈复杂度 108，本段约占四分之一；抽成注入依赖的
  * 逻辑后可直接单测（见 `app/tests/chat/imagePathGuard.test.ts`）。
@@ -16,9 +17,9 @@
  * `patchedArgs` 非空 ⇒ 调用方用它替换工具入参（`inputPath` 补全/修正）。
  */
 import fs from 'fs';
-import { join } from 'path';
+import { isAbsolute, join } from 'path';
 import { getLogger } from '@openliri/infra/monitoring';
-import { resolveDataDir } from '@openliri/infra/environment';
+import { isPathWithin, resolveDataDir } from '@openliri/infra/environment';
 import type { ToolName } from '@openliri/infra/constants/toolNames.generated';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolResult } from '@modules/session/types/tool.js';
@@ -42,6 +43,13 @@ export interface ImagePathGuardDeps {
     'getImageContext' | 'getKnownImagePaths' | 'findClosestPath'
   >;
   getSession(sessionId: string): ChatSession | undefined;
+  /**
+   * P1-2（2026-11-28）：会话工作区解析（`ChatManager.getSessionWorkspacePath`）。
+   *
+   * 工作区已由用户授权（工具执行边界同源）⇒ 模型自己 `file_write` 出的图件必须能作为
+   * 图像工具入参；否则"写 SVG → 转 PNG"永远被 known-paths 判据拒绝。未注入 ⇒ 行为不变。
+   */
+  getSessionWorkspacePath?(sessionId: string): string | null | undefined;
 }
 
 export interface ImagePathGuardParams {
@@ -106,6 +114,17 @@ export async function guardImageInputPath(
   }
 
   if (!inputPath) return { result: null, patchedArgs };
+
+  // P1-2（2026-11-28，真机 `session_mwz477wj251057474e`）：**会话工作区内**的图件直接放行。
+  // 该轮模型已用 `file_write` 把 SVG 写进工作区（写入由同一工作区授权放行），但 `image convert`
+  // 因"not in known image paths"被拒 ⇒ 只能继续用 bash 找渲染器。工作区内的绝对路径是
+  // 模型自己的产物、且有既存工作区边界守卫兜底，读取不放宽任何跨会话/系统目录。
+  const workspaceRoot = deps.getSessionWorkspacePath?.(sessionId);
+  if (workspaceRoot && isAbsolute(inputPath)) {
+    if (isPathWithin(workspaceRoot, inputPath)) {
+      return { result: null, patchedArgs };
+    }
+  }
 
   let knownPaths = deps.imageContextService.getKnownImagePaths(sessionId);
 

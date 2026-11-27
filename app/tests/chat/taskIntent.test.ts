@@ -11,6 +11,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 import {
+  hasImageArtifactIntent,
   hasRefineIntent,
   hasResearchIntent,
   hasVerifyIntent,
@@ -117,5 +118,33 @@ describe('hasRefineIntent — 多轮精修意图判定（deep 档位信号，202
   it('「多轮对话」不命中；「多轮打磨」命中', () => {
     expect(hasRefineIntent('我们继续保持多轮对话')).toBe(false);
     expect(hasRefineIntent('请多轮打磨这份方案')).toBe(true);
+  });
+});
+
+/**
+ * P1-1（2026-11-28，真机 `session_mwz477wj251057474e`）：造图意图判定。
+ *
+ * 该轮"你画一张鹈鹕骑自行车的图片。SVG的吧。"因 `hasImages=false` 把 `image` 类全裁掉，
+ * 模型只能用 bash 自寻 SVG→PNG 渲染器（38 次工具调用 / 15 次失败 / circuit_breaker）。
+ */
+describe('hasImageArtifactIntent — 造图意图（2026-11-28）', () => {
+  it('造图动词 + 图类产物 ⇒ 命中', () => {
+    expect(
+      hasImageArtifactIntent('你画一张鹈鹕骑自行车的图片。SVG的吧。')
+    ).toBe(true);
+    expect(hasImageArtifactIntent('生成一张海报')).toBe(true);
+    expect(hasImageArtifactIntent('帮我画个 logo')).toBe(true);
+    expect(hasImageArtifactIntent('做一张流程图的示意图')).toBe(true);
+    expect(hasImageArtifactIntent('把这张图转成 png')).toBe(true);
+    expect(hasImageArtifactIntent('draw an image of a pelican')).toBe(true);
+  });
+
+  it('识图 / 纯提问 ⇒ 不命中（不扩大工具面）', () => {
+    expect(hasImageArtifactIntent('这张图里有啥？')).toBe(false);
+    expect(hasImageArtifactIntent('这两幅图呢？')).toBe(false);
+    expect(hasImageArtifactIntent('如何理解这张图片？')).toBe(false);
+    expect(hasImageArtifactIntent('把 logo 挪到右上角')).toBe(false);
+    expect(hasImageArtifactIntent('生成一个登录页面')).toBe(false);
+    expect(hasImageArtifactIntent('')).toBe(false);
   });
 });

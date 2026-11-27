@@ -211,3 +211,37 @@ export function hasRefineIntent(text: string): boolean {
     text
   );
 }
+
+/** 「造图」动词：必须带量词/宾语（`画一张` / `画图` / `生成` / `做一张` …），避免「画面」误命中 */
+const IMAGE_PRODUCE_VERB =
+  /(?:(?:画|绘制|制作)(?:图|一张|一幅|一个|个|张|幅|一|下)|生成|做(?:一张|一幅|个)|来(?:一张|一幅|个)|设计(?:一张|一幅|一个|个)|渲染|导出(?:成|为)|转(?:成|为))/;
+
+/** 图像产物对象（含位图/矢量图与常见交付物类型） */
+const IMAGE_ARTIFACT_OBJECT =
+  /(?:图片|图像|插画|海报|图标|logo|封面|壁纸|头像|表情包|svg|矢量图|示意图|流程图|架构图|思维导图|图表|二维码|png|jpg|jpeg|webp)/i;
+
+/**
+ * P1-1（2026-11-28，真机 `session_mwz477wj251057474e`）：**产出图像产物**的意图判定。
+ *
+ * 动因：工具面裁剪只按「本轮是否带图」追加 `image` 类别 —— 用户说「你画一张鹈鹕骑自行车的
+ * 图片。SVG的吧。」时 `hasImages=false` ⇒ `image_svg_generate`/`image`/`media_image_convert`
+ * 全被裁掉，模型只能 `tool_search` 再自己用 bash 找代理渲染器（该轮 38 次工具调用、15 次失败、
+ * 最终 `circuit_breaker`）。
+ *
+ * 判据（保守）：**造图动词 + 图像产物对象同时命中**才为真。
+ * 刻意不覆盖：
+ *  - 只读问句（"这张图里有啥" / "这两幅图呢"）—— 那是识图，由 `hasImages`/图像上下文负责；
+ *  - 既有图件的纯修改（"把 logo 挪一下"）—— 无新产物，不因此扩大工具面。
+ *
+ * 属消息意图分类（非状态判断），与 `isExecutionTaskIntent` 同族。
+ */
+export function hasImageArtifactIntent(text: string): boolean {
+  if (!text) return false;
+  if (IMAGE_PRODUCE_VERB.test(text) && IMAGE_ARTIFACT_OBJECT.test(text)) {
+    return true;
+  }
+  // 英文：draw/generate/create … + image/picture/poster/illustration/logo/svg
+  return /\b(?:draw|generate|create|render)\b[\s\S]{0,40}\b(?:image|picture|poster|illustration|logo|svg|icon|avatar)\b/i.test(
+    text
+  );
+}

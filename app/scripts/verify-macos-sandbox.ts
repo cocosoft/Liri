@@ -11,8 +11,8 @@
  * 退出码：0 = 全部通过；1 = 有断言失败；2 = 环境不支持（非 macOS / 缺 sandbox-exec）。
  */
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { homedir, tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import {
   MACOS_SANDBOX_EXEC_PATH,
   clearMacOSSandboxCapabilityCache,
@@ -176,6 +176,67 @@ async function main(): Promise<void> {
       pass: false,
       detail: `启动/执行异常：${String(error).slice(0, 200)}`,
     });
+  }
+
+  // ⑦ A-1（2026-11-27）：**读白名单候选诊断**（只打印，不参与退出码）。
+  //
+  // 目的：在 macOS 真机上验证"候选读白名单"是否足以让 shell / 解释器 / 工具链启动，
+  // 为后续把生产 profile 从 `(allow file-read*)` 收紧到 `(file-read* (subpath …))` 提供数据。
+  // 判据只打印：✅ = 该负载在"仅候选目录可读"下正常退出；❌ = 还需补目录（stderr 首行指向缺的路径）。
+  try {
+    const readCandidates = [
+      '/usr',
+      '/bin',
+      '/sbin',
+      '/etc',
+      '/private/etc',
+      '/System',
+      '/Library',
+      '/private/var/db',
+      '/dev',
+      '/private/tmp',
+      tmpdir(),
+      dirname(process.execPath),
+      '/usr/local',
+      '/opt/homebrew',
+      join(homedir(), '.pyapp'),
+      join(homedir(), '.config'),
+      join(homedir(), '.cache'),
+      allowDir,
+    ];
+    const readProfile = buildMacOSSandboxProfile({
+      writablePaths: [allowDir, tmpdir(), '/dev'],
+      readablePaths: readCandidates,
+    });
+    console.log(
+      `[verify-macos-sandbox] 读白名单候选（${readCandidates.length} 条）: ${readCandidates.join(' ')}`
+    );
+    const probes: Array<{ name: string; command: string }> = [
+      { name: 'shell 启动 + 系统读', command: 'cat /etc/hosts > /dev/null' },
+      { name: 'bun -e', command: 'bun -e "1"' },
+      { name: 'node -e', command: 'node -e "1"' },
+      { name: 'git --version', command: 'git --version' },
+      { name: 'python3 -c', command: 'python3 -c "1"' },
+    ];
+    for (const probe of probes) {
+      const r = await runWithSandboxExec({
+        profile: readProfile,
+        command: probe.command,
+        timeoutMs: TIMEOUT_MS,
+        maxBufferChars: MAX_BUFFER_CHARS,
+      });
+      const detail =
+        r.exitCode === 0
+          ? 'ok'
+          : `exit=${r.exitCode} stderr=${r.stderr.trim().slice(0, 200) || '—'}`;
+      console.log(
+        `[A-1 读白名单诊断] ${r.exitCode === 0 ? '✅' : '❌'} ${probe.name} — ${detail}`
+      );
+    }
+  } catch (error) {
+    console.log(
+      `[A-1 读白名单诊断] ⚠️ 未执行：${String(error).slice(0, 200)}`
+    );
   }
 
   rmSync(allowDir, { recursive: true, force: true });

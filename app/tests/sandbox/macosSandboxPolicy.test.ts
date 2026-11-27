@@ -68,6 +68,29 @@ describe('buildMacOSSandboxProfile', () => {
       '(subpath "/a\\"b")'
     );
   });
+
+  // A-1（2026-11-27）：读白名单能力（缺省不改行为；显式传入才收紧）
+  it('readablePaths 缺省 ⇒ 仍是 (allow file-read*)（零行为变更）', () => {
+    const profile = buildMacOSSandboxProfile({ writablePaths: ['/w'] });
+    expect(profile).toContain('(allow file-read*)');
+    expect(profile).not.toContain('(allow file-read* (subpath');
+  });
+
+  it('readablePaths 传入 ⇒ 收紧为逐条 subpath，且不再有无约束的 file-read*', () => {
+    const profile = buildMacOSSandboxProfile({
+      writablePaths: ['/liri-test/w'],
+      readablePaths: ['/liri-test/sys', '/liri-test/rt', '/liri-test/sys'],
+    });
+    expect(profile).toContain('(allow file-read*');
+    expect(profile).toContain('(subpath "/liri-test/sys")');
+    expect(profile).toContain('(subpath "/liri-test/rt")');
+    // 读白名单去重（同一条只出现一次）
+    expect(profile.match(/\(subpath "\/liri-test\/sys"\)/g)?.length).toBe(1);
+    // 收紧后不得再出现"读全放行"：只允许 `(allow file-read*` 后跟换行 + subpath
+    expect(profile).not.toContain('(allow file-read*)\n');
+    // 读块必须闭合（与写块同样成对），否则 sandbox-exec 直接报语法错
+    expect(profile).toMatch(/\(allow file-read\*\n(\s+\(subpath .*\)\n)+\)/);
+  });
 });
 
 describe('toKernelPath（SBPL 按内核解析后的路径匹配）', () => {

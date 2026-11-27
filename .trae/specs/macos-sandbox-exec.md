@@ -106,10 +106,17 @@
 调度点（`LinuxSandboxRunner.ts:293` 所在函数）按 `process.platform` 分流：`darwin` → macOS runner，
 其余 → 现有跨平台执行器。`failClosed` 沿用 `sandbox.landlock.failClosed`。
 
-### 3.5 后续可选收紧（本次不做，登记触发条件）
+### 3.5 后续可选收紧（读白名单**能力已就位**，默认仍不收紧）
 
-- 读白名单化（`file-read*` → 逐条 `subpath`）：收益大但误伤面广，需先有 macOS 实机灰度数据；
-- 网络收紧（`(allow network*)` → 仅本地回环 / 白名单）：与 Linux 网络策略对齐时一并做。
+- 读白名单化（`file-read*` → 逐条 `subpath`）：收益大但误伤面广，需先有 macOS 实机数据。
+  **2026-11-27 进展**：`buildMacOSSandboxProfile` 新增 `readablePaths`（缺省仍是 `(allow file-read*)` ⇒
+  零行为变更）；`verify:sandbox-macos` 新增**诊断段**（只打印不 gate）：用候选清单
+  （`/usr` `/bin` `/sbin` `/etc` `/System` `/Library` `/private/var/db` `/dev` `/private/tmp` `tmpdir`
+  `dirname(process.execPath)` `/usr/local` `/opt/homebrew` `~/.pyapp` `~/.config` `~/.cache` 工作区）
+  在 macOS runner 上跑 `cat /etc/hosts` / `bun -e` / `node -e` / `git --version` / `python3 -c`，
+  日志里 `[A-1 读白名单诊断]` 行即为采集结果 ⇒ 用它决定最终清单后再切换默认。
+- 网络收紧（`(allow network*)` → 仅本地回环 / 白名单）：与 Linux 网络策略对齐时一并做
+  （Linux 侧当前刻意"不 handle 网络"，单改 macOS 会与既有裁定冲突）。
 
 ### 3.6 已知限制（如实，2026-10-26 收口时确认）
 

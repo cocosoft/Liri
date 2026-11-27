@@ -32,7 +32,9 @@
  * - `(allow process*)` ⇒ 允许 shell 自身 fork/exec；
  * - 网络默认放行（与现有 Landlock bash 口径一致："不 handle 网络 = 不受限"）。
  *
- * 读白名单化 / 网络收紧见方案 §3.5（本次不做，登记为后续项）。
+ * A-1（2026-11-27）：读白名单**能力已就位**（`readablePaths`；缺省仍是 `(allow file-read*)` ⇒ 零行为变更）。
+ * 是否收紧由调用方决定 —— 需先用 `verify:sandbox-macos` 的诊断段在 macOS 真机确认清单**足够**。
+ * 网络收紧（A-2）仍登记为后续项（需与 Linux 网络策略同步，单改 macOS 会与既有裁定冲突）。
  */
 
 import { realpathSync } from 'node:fs';
@@ -42,6 +44,16 @@ export interface MacOSSandboxProfileInput {
   writablePaths: string[];
   /** 是否放行网络；缺省 `true`（与现有基线同口径） */
   allowNetwork?: boolean;
+  /**
+   * A-1（2026-11-27）：**读白名单**（逐条 `subpath`）。
+   *
+   * 缺省 / 空数组 ⇒ 保持 `(allow file-read*)`（读不设限，**零行为变更**）；
+   * 传入非空 ⇒ 收紧为「仅这些目录可读」。
+   *
+   * ⚠️ 收紧前必须用 `verify:sandbox-macos` 的诊断段在 macOS 真机确认清单**足够**
+   * （漏一个系统/运行时路径 ⇒ 沙箱内的 shell / 解释器直接起不来）。
+   */
+  readablePaths?: string[];
 }
 
 /**
@@ -92,12 +104,24 @@ function normalizePaths(paths: string[]): string[] {
 export function buildMacOSSandboxProfile(
   input: MacOSSandboxProfileInput
 ): string {
-  const lines: string[] = [
-    '(version 1)',
-    '(deny default)',
-    '',
-    '; 读：系统与运行时（动态库 / 证书 / 工具链）',
-    '(allow file-read*)',
+  const lines: string[] = ['(version 1)', '(deny default)', ''];
+
+  // A-1（2026-11-27）：读白名单可选 —— 不传 ⇒ 保持 `(allow file-read*)`（零行为变更）
+  const readable = normalizePaths(input.readablePaths ?? []);
+  if (readable.length === 0) {
+    lines.push(
+      '; 读：系统与运行时（动态库 / 证书 / 工具链）',
+      '(allow file-read*)'
+    );
+  } else {
+    lines.push('; 读：仅白名单目录（A-1 收紧；未命中 ⇒ 落回 default deny）');
+    lines.push('(allow file-read*');
+    for (const path of readable) {
+      lines.push(`  (subpath "${escapeSbplString(path)}")`);
+    }
+    lines.push(')');
+  }
+  lines.push(
     '',
     // 2026-11-27（macOS CI 实证，`.trae/specs/macos-sandbox-exec.md` §3.6）：
     // `bun -e` 在缺本条时被内核直接终止（`exit=null`，无退出码）；同 profile 加本条后 `exit=0`。
@@ -107,8 +131,8 @@ export function buildMacOSSandboxProfile(
     '(allow sysctl-read)',
     '',
     '; 进程：允许 shell 自身 fork/exec（否则无法启动待执行命令）',
-    '(allow process*)',
-  ];
+    '(allow process*)'
+  );
 
   if (input.allowNetwork !== false) {
     lines.push(

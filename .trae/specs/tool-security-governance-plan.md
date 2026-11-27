@@ -500,6 +500,8 @@ F3–F10 仍待办 ⇒ 本节原「本计划无剩余待办」表述已按事实
 
 | SG-5 | **已拍板（2026-11-27，D-1 = A）**：Windows/macOS 上"权限级别看起来零生效" —— **事实订正**：命令类（SHELL）豁免自 2026-11-26 起改用 `shellWriteIsolated` 判据，故 Windows Low IL / macOS Seatbelt 上**级别实际生效**（`permission-insufficient`）；"零生效"只对**文件类**成立，且**应当如此**（文件写走主进程 `node:fs`，子进程写隔离覆盖不到）。落地：前端 `levelInactive` 改按 `posture.shellWriteIsolated`（不再用 `runtimeIsolation`），文案说明"级别只影响命令类；文件类仍需隔离工作区"；**判定代码零改动**（不把写隔离当文件类豁免证据）。详见 `dev_docs/error_repairs/预存错误与待处理问题.md` 同条订正 |
 
+| SG-6 | **已闭环（2026-11-27）**：复合命令不再"整条硬拒" —— P1-3 + N-7 已把含操作符的命令改走 `checkCompoundReadOnly`（全段只读 ⇒ allow；仅含非只读段 ⇒ **ask**；重定向/命令替换/后台 `&` 等结构风险仍 deny）；本轮补 `$` 的最后一类：**只读环境变量白名单 + 参数位置**的 `$NAME`/`${NAME}` 放行（`$(…)`/反引号/`$1`/段首变量/非白名单变量仍拒）。取证：`app/tests/security/compoundReadOnly.test.ts`（新增 D-2 5 项；`tests/security` 532 pass） |
+
 ### 13.3 G9 结论订正（如实）
 
 G9 原写「统一截断链路兜住超长输出」**不成立**：`maxResultSizeChars` 此前只被

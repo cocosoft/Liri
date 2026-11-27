@@ -60,6 +60,50 @@ export function stripHarmlessRedirects(command: string): string {
  * 而 Windows `cmd.exe` 里是**命令分隔符**（等价换行）。故由 `ampersandSeparator` 决定：
  * 为真时 `&` 按分隔符切段（后续仍逐段过只读白名单），为假时维持 fail-closed。
  */
+/**
+ * 2026-11-27（D-2）：**纯变量展开**与命令替换分开处理。
+ *
+ * 背景（台账 2026-10-27 那条）：`SHELL_OPERATORS` 含 `$` ⇒ `echo $HOME` 这类良性命令
+ * 被判「变量/命令替换（$）」**硬拒**，连审批机会都没有。但 `$VAR` 与 `$(…)` / 反引号
+ * 的风险不是一回事：前者只是取值，后者才是执行。
+ *
+ * 口径（**只放行最窄的一类**）：
+ * - 仅 `$NAME` / `${NAME}`，且 NAME 在**只读环境变量白名单**内；
+ * - 仅允许出现在**参数位置**（段首的变量展开会被当成命令名 ⇒ 仍拒）；
+ * - `$(…)` / 反引号 / `$1` / `$?` / `$$` 等一律仍按原样拒绝（fail-closed）。
+ *
+ * 放行后仍要逐段过只读白名单（占位符保留为 `${NAME}` 字面），所以 `find $HOME` 这类
+ * 仍会因 `find` 的只读参数禁区被拦。
+ */
+const READONLY_ENV_VARS = new Set([
+  'HOME',
+  'USERPROFILE',
+  'PWD',
+  'TEMP',
+  'TMP',
+  'SYSTEMROOT',
+]);
+
+/** 读 `$NAME` / `${NAME}`；返回占位符与新的游标（非白名单 / 非具名变量 ⇒ `null`） */
+function readWhitelistedVariable(
+  text: string,
+  dollarIndex: number
+): { placeholder: string; nextIndex: number } | null {
+  const rest = text.slice(dollarIndex + 1);
+  if (rest.startsWith('(')) return null; // 命令替换
+  const braced = /^\{([A-Za-z_][A-Za-z0-9_]*)\}/.exec(rest);
+  const bare = /^([A-Za-z_][A-Za-z0-9_]*)/.exec(rest);
+  const name = braced?.[1] ?? bare?.[1];
+  if (!name) return null; // `$$` / `$?` / `$1` / 结尾 `$`
+  if (!READONLY_ENV_VARS.has(name.toUpperCase())) return null;
+  return {
+    placeholder: `\${${name}}`,
+    nextIndex: dollarIndex + (braced ? braced[0].length : bare![0].length),
+  };
+}
+
+/** 引号感知切段；同时拒绝重定向 / 命令替换 / 后台执行（白名单变量除外，见上）。 */
+
 function splitSafely(
   command: string,
   ampersandSeparator: boolean
@@ -95,9 +139,18 @@ function splitSafely(
         inDouble = false;
         continue;
       }
-      // 双引号内仍会展开 —— 一律拒绝
+      // 双引号内仍会展开 —— 但白名单只读变量（参数位置）例外（D-2）
       if (ch === '`') return { segments, forbidden: '反引号命令替换' };
-      if (ch === '$') return { segments, forbidden: '变量/命令替换（$）' };
+      if (ch === '$') {
+        const variable =
+          buf.trim().length === 0
+            ? null
+            : readWhitelistedVariable(command, i);
+        if (!variable) return { segments, forbidden: '变量/命令替换（$）' };
+        buf += variable.placeholder;
+        i = variable.nextIndex;
+        continue;
+      }
       // B2-2（2026-10-30，issue #36）：引号内的 `>` / `<` 是**普通字符**，不是重定向。
       // 真机实测 `git show --stat | findstr /c:"=>"` 因模式里的 `>` 被判「重定向」硬拒。
       // 引号外的重定向仍在下方的普通态分支里 fail-closed。
@@ -128,7 +181,15 @@ function splitSafely(
       continue;
     }
     if (ch === '`') return { segments, forbidden: '反引号命令替换' };
-    if (ch === '$') return { segments, forbidden: '变量/命令替换（$）' };
+    if (ch === '$') {
+      // D-2：只放行"参数位置 + 白名单只读变量"；段首变量（当命令名）与其它形态仍拒
+      const variable =
+        buf.trim().length === 0 ? null : readWhitelistedVariable(command, i);
+      if (!variable) return { segments, forbidden: '变量/命令替换（$）' };
+      buf += variable.placeholder;
+      i = variable.nextIndex;
+      continue;
+    }
     // FIX-9（2026-10-27）：**丢弃/合并型重定向**不算"写文件"——
     // `dir x 2>nul` / `cmd 2>&1` / `cmd >/dev/null` 是 Windows/POSIX 最常见的
     // "静音 stderr"写法，真机 21 条 analyzer deny 里多例因此被拒（`where /r … 2>nul`）。

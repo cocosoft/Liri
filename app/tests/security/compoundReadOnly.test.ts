@@ -127,7 +127,10 @@ describe('checkCompoundReadOnly：负向（必须仍拒绝）', () => {
   it('命令替换 / 变量展开', () => {
     denied('echo $(whoami)');
     denied('dir `pwd`');
-    denied('dir $HOME');
+    // D-2（2026-11-27）：**白名单只读变量 + 参数位置** 例外（见下方 D-2 用例）；
+    // 非白名单变量 / 段首变量 / 命令替换仍拒。
+    expect(checkCompoundReadOnly('dir $HOME').allowed).toBe(true);
+    denied('dir $FILE');
   });
 
   it('后台执行', () => {
@@ -166,6 +169,35 @@ describe('checkCompoundReadOnly：负向（必须仍拒绝）', () => {
 
   it('引号未闭合', () => {
     denied('dir "unclosed');
+  });
+});
+
+// D-2（2026-11-27）：`$` 不再一律硬拒 —— 只放行「参数位置 + 只读环境变量白名单」；
+// 命令替换 / 段首变量 / 非白名单变量 / 重定向 / 后台 仍按原样拒绝（fail-closed）。
+describe('D-2：白名单变量展开', () => {
+  const analyzer = new BashSecurityAnalyzer();
+
+  it('参数位置的白名单变量 ⇒ allow（此前 `echo $HOME` 连审批机会都没有）', () => {
+    expect(analyzer.analyze('echo $HOME').behavior).toBe('allow');
+    expect(analyzer.analyze('ls "$TEMP"').behavior).toBe('allow');
+    expect(analyzer.analyze('echo ${USERPROFILE}').behavior).toBe('allow');
+  });
+
+  it('复合命令里的白名单变量 ⇒ 仍逐段过只读白名单', () => {
+    expect(analyzer.analyze('cd $HOME && dir /b').behavior).toBe('allow');
+  });
+
+  it('非白名单变量 ⇒ 仍 deny', () => {
+    expect(analyzer.analyze('cat $FILE').behavior).toBe('deny');
+  });
+
+  it('段首变量（当命令名）⇒ 仍 deny', () => {
+    expect(analyzer.analyze('$CMD arg').behavior).toBe('deny');
+  });
+
+  it('命令替换 ⇒ 仍 deny（`$(…)` 与反引号）', () => {
+    expect(analyzer.analyze('echo $(whoami)').behavior).toBe('deny');
+    expect(analyzer.analyze('echo `whoami`').behavior).toBe('deny');
   });
 });
 

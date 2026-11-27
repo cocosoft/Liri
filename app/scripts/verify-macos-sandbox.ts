@@ -178,12 +178,15 @@ async function main(): Promise<void> {
     });
   }
 
-  // ⑦ A-1（2026-11-27）：**读白名单候选诊断**（只打印，不参与退出码）。
+  // ⑦ A-1（2026-11-27）：**读白名单候选诊断**（只打印，不参与退出码；默认关闭）。
   //
-  // 目的：在 macOS 真机上验证"候选读白名单"是否足以让 shell / 解释器 / 工具链启动，
-  // 为后续把生产 profile 从 `(allow file-read*)` 收紧到 `(file-read* (subpath …))` 提供数据。
-  // 判据只打印：✅ = 该负载在"仅候选目录可读"下正常退出；❌ = 还需补目录（stderr 首行指向缺的路径）。
-  try {
+  // 三轮 macOS CI 采集结论（均为 `exit=null`）：
+  //   ① 18 条系统/运行时候选；② +cryptex/preboot/dyld；③ 两个变体（仅 subpath / 再加 file-read-metadata）
+  //   —— **连 `cat /etc/hosts`（`/etc` 已在白名单）都起不来** ⇒ 缺的不是路径，而是全局非路径类权限
+  //   （可执行映射 / mach 等）⇒ 路径白名单**无法收敛**，A-1 暂不做（见 SG-7 ①）。
+  // 保留本段供未来在真 Mac 上继续定位：`MACOS_READ_DISCOVERY=1 bun run verify:sandbox-macos`。
+  if (process.env.MACOS_READ_DISCOVERY === '1') {
+    try {
     const readCandidates = [
       '/usr',
       '/bin',
@@ -253,6 +256,7 @@ async function main(): Promise<void> {
     console.log(
       `[A-1 读白名单诊断] ⚠️ 未执行：${String(error).slice(0, 200)}`
     );
+  }
   }
 
   rmSync(allowDir, { recursive: true, force: true });

@@ -8,7 +8,8 @@
  *   ② 负向对照：非规范文件再写一份危险表 / 只读目录 / 废弃常量 ⇒ exit 1 并点名；
  *   ③ 负向对照：HTTP 层出现 `tool_rules.json` 或第二个 `/v1/permissions/rules` 路由 ⇒ exit 1；
  *   ④ 解析失败（扫描目录缺失）⇒ exit 1，不得静默当作通过；
- *   ⑤ 负向对照：bash 工具新增未登记的 `requireApproval` 出口、或丢掉预检接线 ⇒ exit 1。
+ *   ⑤ 负向对照：bash 工具新增未登记的 `requireApproval` 出口、或丢掉预检接线 ⇒ exit 1；
+ *   ⑦ 负向对照：白名单被挪到 deny 门之前 / 少了一道 deny 门 / 定位不到 `runSecurityGates` ⇒ exit 1。
  */
 import { describe, it, expect, afterAll } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -232,10 +233,91 @@ const READ_ONLY_BASES = READ_ONLY_BASE_COMMANDS;
         '}',
         '',
       ].join('\n'),
+      'app/src/tools/bash/BashTool.ts': [
+        "import { checkApprovalWouldBeBlocked } from './bashSecurityGate';",
+        'export class BashTool {',
+        '  private runSecurityGates(params: { skipAskByPolicy: (b: unknown) => boolean }): string | null {',
+        '    void checkApprovalWouldBeBlocked;',
+        '    void params;',
+        '    const a = checkPathSafety(std);',
+        '    const b = checkBashDangerousCommand(cmd);',
+        '    const c = checkAstAndAnalyzer({});',
+        '    const d = checkPowerShellWrapper(cmd, cwd, t);',
+        '    if (a || b || c || d) return a ?? b ?? c ?? d;',
+        '    const w = checkWhitelistAndSandbox();',
+        '    if (w) return w;',
+        '    return null;',
+        '  }',
+        '}',
+        '',
+      ].join('\n'),
+    });
+    const r = run(dir);
+    expect(r.status).toBe(0);
+  });
+
+  // ─── ⑦ deny 必须先于 allowlist（2026-11-27，二次复查 §13.4 ②）─────────────
+
+  /** ⑦ 的 BashTool 夹具：`denyCalls` 逐条放在白名单**之前**（顺序由调用方决定） */
+  const bashToolWith = (denyCalls: string[], allowFirst = false): string =>
+    [
+      "import { checkApprovalWouldBeBlocked } from './bashSecurityGate';",
+      'export class BashTool {',
+      '  private runSecurityGates(params: { skipAskByPolicy: (b: unknown) => boolean }): string | null {',
+      '    void checkApprovalWouldBeBlocked;',
+      '    void params;',
+      ...(allowFirst ? ['    const w = checkWhitelistAndSandbox();'] : []),
+      ...denyCalls.map((call, i) => `    const d${i} = ${call};`),
+      ...(allowFirst ? [] : ['    const w = checkWhitelistAndSandbox();']),
+      '    if (w) return w;',
+      '    return null;',
+      '  }',
+      '}',
+      '',
+    ].join('\n');
+
+  const FULL_DENY = [
+    'checkPathSafety(std)',
+    'checkBashDangerousCommand(cmd)',
+    'checkAstAndAnalyzer({})',
+    'checkPowerShellWrapper(cmd, cwd, t)',
+  ];
+
+  it('合法形态：4 道 deny 门都在白名单之前 ⇒ exit 0', () => {
+    const dir = fixtureFiles({
+      'app/src/tools/bash/BashTool.ts': bashToolWith(FULL_DENY),
+    });
+    expect(run(dir).status).toBe(0);
+  });
+
+  it('负向对照：白名单被挪到 deny 之前 ⇒ exit 1 并点名顺序', () => {
+    const dir = fixtureFiles({
+      'app/src/tools/bash/BashTool.ts': bashToolWith(FULL_DENY, true),
+    });
+    const r = run(dir);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain('deny 必须先于 allowlist');
+    expect(r.out).toContain('checkAstAndAnalyzer');
+  });
+
+  it('负向对照：缺少某道 deny 门 ⇒ exit 1（顺序不可验证，fail-closed）', () => {
+    const dir = fixtureFiles({
+      'app/src/tools/bash/BashTool.ts': bashToolWith(
+        FULL_DENY.filter((c) => !c.startsWith('checkBashDangerousCommand'))
+      ),
+    });
+    const r = run(dir);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain('缺少 checkBashDangerousCommand');
+  });
+
+  it('负向对照：定位不到 runSecurityGates ⇒ exit 1（不得静默通过）', () => {
+    const dir = fixtureFiles({
       'app/src/tools/bash/BashTool.ts':
         "import { checkApprovalWouldBeBlocked } from './bashSecurityGate';\nexport const run = () => checkApprovalWouldBeBlocked();\n",
     });
     const r = run(dir);
-    expect(r.status).toBe(0);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain('定位不到 runSecurityGates');
   });
 });

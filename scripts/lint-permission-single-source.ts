@@ -21,6 +21,9 @@
  *      另起实例 —— 规则 HTTP API（增删查 / simulate）读 `PermissionManager.getInstance()`，
  *      执行链若另 new 一个，两边各持一份 `tool_rules.json` 快照（仅 30s 惰性轮询刷新）
  *      ⇒ 「模拟 deny、执行 allow」。需要独立实例的只有测试（`*.test.ts` 不在扫描范围）。
+ *   ⑦ **deny 先于 allowlist**（2026-11-27，二次复查 §13.4 ②）：`BashTool.runSecurityGates`
+ *      里 4 道 deny 门（路径 / 危险命令 / 分析器 / PowerShell 包裹）必须出现在
+ *      `checkWhitelistAndSandbox` **之前**；函数体定位不到或调用缺失 ⇒ 顺序不可验证 ⇒ exit 1。
  *   任何扫描输入缺失 / 读取失败 ⇒ exit 1（不得静默降级为「0 违规」）。
  *
  * 用法：`bun run scripts/lint-permission-single-source.ts`（CI / `bun run ci` 均调用）
@@ -224,7 +227,114 @@ function stripStrings(text: string): string {
   );
 }
 
-// ─── ⑤ 审批可执行性契约（2026-11-24）──────────────────────────────────────────
+// ─── ⑦ deny 必须先于 allowlist（2026-11-27，二次复查 §13.4 ②）──────────────────
+//
+// 立论：`BashTool.runSecurityGates` 是硬拦截层的唯一收敛点。4 道 deny 门一旦被挪到
+// `checkWhitelistAndSandbox`（白名单放行）之后，命中白名单的命令就会**绕过 deny**
+// （审批层与执行层再一致也救不回来）。本判据只锁"存在 + 顺序"，不猜语义：
+//   ⑦a 必须能定位到 `runSecurityGates` 的函数体（定位不到 ⇒ fail-closed，不得静默通过）；
+//   ⑦b 函数体里必须同时出现 4 道 deny 门的调用与 `checkWhitelistAndSandbox(`；
+//   ⑦c 每道 deny 门的**首个**调用位置必须早于 `checkWhitelistAndSandbox(`。
+const RUN_GATES_NAME = 'runSecurityGates';
+const WHITELIST_CALL = 'checkWhitelistAndSandbox(';
+/** deny 源：必须在白名单之前求值（顺序即语义） */
+const DENY_CALLS = [
+  'checkPathSafety(',
+  'checkBashDangerousCommand(',
+  'checkAstAndAnalyzer(',
+  'checkPowerShellWrapper(',
+];
+
+/** 找 `name(` 的**定义**位置：跳过 `this.name(` / `obj.name(` 这类调用 */
+function findDefinitionIndex(code: string, name: string): number {
+  const re = new RegExp(`\\b${name}\\s*\\(`, 'g');
+  for (const m of code.matchAll(re)) {
+    const at = m.index ?? -1;
+    if (at < 0) continue;
+    let i = at - 1;
+    while (i >= 0 && /\s/.test(code[i]!)) i -= 1;
+    if (code[i] === '.') continue;
+    return at;
+  }
+  return -1;
+}
+
+/** 从 `{` 起按花括号配对，返回含首尾括号的片段（调用前须先去除注释与字符串） */
+function matchBraces(code: string, start: number): string | null {
+  let depth = 0;
+  for (let i = start; i < code.length; i += 1) {
+    const ch = code[i];
+    if (ch === '{') depth += 1;
+    else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return code.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+/** 取 `name` 的函数体（跳过参数表的括号；参数类型里的 `(…) =>` 也成对，故可安全配对） */
+function extractFunctionBody(code: string, name: string): string | null {
+  const at = findDefinitionIndex(code, name);
+  if (at < 0) return null;
+  const parenStart = code.indexOf('(', at);
+  if (parenStart < 0) return null;
+  let depth = 0;
+  let parenEnd = -1;
+  for (let i = parenStart; i < code.length; i += 1) {
+    const ch = code[i];
+    if (ch === '(') depth += 1;
+    else if (ch === ')') {
+      depth -= 1;
+      if (depth === 0) {
+        parenEnd = i;
+        break;
+      }
+    }
+  }
+  if (parenEnd < 0) return null;
+  const bodyStart = code.indexOf('{', parenEnd);
+  if (bodyStart < 0) return null;
+  return matchBraces(code, bodyStart);
+}
+
+/** ⑦：返回违规清单（空 = 通过） */
+function checkDenyBeforeAllowlist(text: string): string[] {
+  const body = extractFunctionBody(
+    stripStrings(stripComments(text)),
+    RUN_GATES_NAME
+  );
+  if (!body) {
+    return [
+      `${BASH_TOOL_FILE}: 定位不到 ${RUN_GATES_NAME} 的函数体 ⇒ 无法验证「deny 先于 allowlist」（fail-closed）`,
+    ];
+  }
+  const allowAt = body.indexOf(WHITELIST_CALL);
+  if (allowAt < 0) {
+    return [
+      `${BASH_TOOL_FILE}: ${RUN_GATES_NAME} 内找不到 ${WHITELIST_CALL} ⇒ 判定顺序不可验证（fail-closed）`,
+    ];
+  }
+  const violations: string[] = [];
+  for (const call of DENY_CALLS) {
+    const name = call.replace(/\($/, '');
+    const denyAt = body.indexOf(call);
+    if (denyAt < 0) {
+      violations.push(
+        `${BASH_TOOL_FILE}: ${RUN_GATES_NAME} 缺少 ${name} ⇒ 顺序断言不可验证（fail-closed）`
+      );
+      continue;
+    }
+    if (denyAt > allowAt) {
+      violations.push(
+        `${BASH_TOOL_FILE}: ${name} 出现在 checkWhitelistAndSandbox 之后 ⇒ deny 必须先于 allowlist（否则白名单命中会绕过 deny）`
+      );
+    }
+  }
+  return violations;
+}
+
+
 //
 // 真机 `session_mwrf18pu00456e0f2b`：`for %f in (...) do @echo ...` 先被 ask 层判"可确认"
 // 并提交审批卡（文案承诺「批准后可继续执行」），用户批准后重放却被硬拦截④（基命令白名单
@@ -371,6 +481,11 @@ for (const file of files) {
     }
   }
 
+  // ⑦ deny 必须先于 allowlist（2026-11-27，二次复查 §13.4 ②）
+  if (rel === BASH_TOOL_FILE) {
+    violations.push(...checkDenyBeforeAllowlist(text));
+  }
+
   // ① 同名常量在非规范文件里以字面集合声明
   for (const m of text.matchAll(DECLARATION_RE)) {
     const name = m[1]!;
@@ -434,6 +549,6 @@ if (violations.length > 0) {
 }
 
 console.log(
-  `✅ [permission-single-source] 扫描 ${files.length} 个源文件：危险表 / 只读目录各仅一份、工具规则 HTTP 写入口唯一、审批产生点均接终局预检、权限运行时实例唯一（豁免 ${Object.keys(ALLOWLIST).length} 处，均带理由）`
+  `✅ [permission-single-source] 扫描 ${files.length} 个源文件：危险表 / 只读目录各仅一份、工具规则 HTTP 写入口唯一、审批产生点均接终局预检、权限运行时实例唯一、deny 先于 allowlist（豁免 ${Object.keys(ALLOWLIST).length} 处，均带理由）`
 );
 process.exit(0);

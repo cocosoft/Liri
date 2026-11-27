@@ -515,7 +515,11 @@ G9 原写「统一截断链路兜住超长输出」**不成立**：`maxResultSiz
 
 现有门禁只校验「声明是否齐全」，不校验「判定顺序」与「运行期派生一致性」。建议补：
 
-1. 无 `TOOL_EFFECTS` 条目的动态工具（MCP / 插件）**禁止**用 `isReadOnly` 兜底放行；
-2. `deny` 必须先于 allowlist 的顺序断言（或由单测锁住）。
+1. 无 `TOOL_EFFECTS` 条目的动态工具（MCP / 插件）**禁止**用 `isReadOnly` 兜底放行（**未做**，有行为变更，待裁定）；
+2. ✅ **已落地（2026-11-27）**：`deny` 必须先于 allowlist 的**顺序断言** —— `lint:permission-single-source` 新增判据 ⑦：
+   `BashTool.runSecurityGates` 的函数体里 4 道 deny 门（`checkPathSafety` / `checkBashDangerousCommand` /
+   `checkAstAndAnalyzer` / `checkPowerShellWrapper`）的首个调用位置必须早于 `checkWhitelistAndSandbox`；
+   函数体定位不到 / 缺任一 deny 门 ⇒ **fail-closed**（顺序不可验证不得当作通过）。
+   取证：`app/tests/permission/permissionSingleSource.test.ts` 新增 4 例（合法顺序 / 白名单前置 / 缺门 / 定位失败）。
 
 

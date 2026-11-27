@@ -15,6 +15,7 @@ import type { ToolUseContext } from '../types/ToolUseContext';
 import { ToolExecutionStatus, type ToolResult } from '../types/ToolResult';
 import type { PermissionResult } from '../types/PermissionResult';
 import type { ToolValidationResult } from '../types/Tool';
+import type { ToolRiskClass } from '@openliri/infra/utils/toolContract/Tool';
 import type {
   ToolDefinition,
   ToolParameter,
@@ -121,6 +122,17 @@ export class ToolDefinitionAdapter implements Tool {
 
   isReadOnly(_input?: Record<string, unknown>): boolean {
     return this.info.readOnly;
+  }
+
+  /**
+   * §13.4 ①（2026-11-27）：定义式（插件 / 外部）工具**不得**用 `isReadOnly` 自报换取自动放行。
+   *
+   * 这些工具没有 `TOOL_EFFECTS` 条目（`TOOL_EFFECTS` 只覆盖内建工具），自报"只读"即可
+   * 绕过审批等于把档位交给被审对象自述 ⇒ 这里一律 `undeclared`（⇒ 人工审批）。
+   * 需要免问的工具必须在自己的实现里声明 `riskClass` / `riskClassFor`。
+   */
+  getRiskClass(): ToolRiskClass {
+    return 'undeclared';
   }
 
   isDestructive(_input?: Record<string, unknown>): boolean {

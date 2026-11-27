@@ -9,6 +9,11 @@
  * `READ ⇒ allow`，远端删文件 / 发消息等调用**静默执行、无审批**。
  * 现口径：只有 `annotations.readOnlyHint === true` 才认只读；缺省按未声明
  * 处理（`undeclared` ⇒ 人工审批）。
+ *
+ * §13.4 ①（2026-11-27）：`isReadOnly` 自报**不再**是风险声明 —— MCP 的 `read` 来自
+ * `getRiskClass()` 里对显式 `readOnlyHint` 的**声明**；`deriveToolRiskClass`（无
+ * `TOOL_EFFECTS` 条目）对 MCP 一律 `undeclared`。只有自报、没有任何声明的工具也一律
+ * `undeclared`（见末尾用例）。
  */
 
 import { describe, expect, it } from 'bun:test';
@@ -45,6 +50,7 @@ describe('F1：MCP 只读声明', () => {
     expect(tool.isReadOnly()).toBe(false);
     expect(tool.isConcurrencySafe()).toBe(false);
     expect(deriveToolRiskClass(tool, {})).toBe('undeclared');
+    expect(tool.getRiskClass()).toBe('undeclared');
     expect(resolveRiskClass(tool, {})).toBe(RiskClass.UNDECLARED);
   });
 
@@ -54,12 +60,24 @@ describe('F1：MCP 只读声明', () => {
     expect(resolveRiskClass(tool, {})).toBe(RiskClass.UNDECLARED);
   });
 
-  it('readOnlyHint=true ⇒ read（可自动放行）', () => {
+  it('readOnlyHint=true ⇒ getRiskClass 显式声明 read（可自动放行）', () => {
     const tool = wrapper({ readOnlyHint: true });
     expect(tool.isReadOnly()).toBe(true);
     expect(tool.isConcurrencySafe()).toBe(true);
-    expect(deriveToolRiskClass(tool, {})).toBe('read');
+    // §13.4 ①：结构化派生（无 TOOL_EFFECTS 条目）不再因自报判 read；
+    // 免问只能来自包装器的**显式声明**
+    expect(deriveToolRiskClass(tool, {})).toBe('undeclared');
+    expect(tool.getRiskClass()).toBe('read');
     expect(resolveRiskClass(tool, {})).toBe(RiskClass.READ);
+  });
+
+  it('§13.4 ①：只有 isReadOnly 自报、没有任何风险声明的工具 ⇒ undeclared', () => {
+    const selfReportedOnly = {
+      name: 'third_party_tool',
+      isReadOnly: () => true,
+    };
+    expect(deriveToolRiskClass(selfReportedOnly, {})).toBe('undeclared');
+    expect(resolveRiskClass(selfReportedOnly, {})).toBe(RiskClass.UNDECLARED);
   });
 
   it('destructiveHint 缺省视为破坏性，仅显式 false 才否', () => {

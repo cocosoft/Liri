@@ -515,7 +515,13 @@ G9 原写「统一截断链路兜住超长输出」**不成立**：`maxResultSiz
 
 现有门禁只校验「声明是否齐全」，不校验「判定顺序」与「运行期派生一致性」。建议补：
 
-1. 无 `TOOL_EFFECTS` 条目的动态工具（MCP / 插件）**禁止**用 `isReadOnly` 兜底放行（**未做**，有行为变更，待裁定）；
+1. ✅ **已落地（2026-11-27）**：动态工具**禁止**用 `isReadOnly` 兜底放行 ——
+   `deriveToolRiskClass` 与 `resolveRiskClass` 两条链都**删除**「自报 `isReadOnly === true` ⇒ `read`」；
+   免问只能来自显式声明（`riskClassFor` / `riskClass` / `getRiskClass`）。动态工具的包装器各自补声明：
+   `McpToolWrapper.getRiskClass()` = 服务端 `annotations.readOnlyHint === true` 才是 `read`（否则 `undeclared`）；
+   `ToolDefinitionAdapter.getRiskClass()` = 一律 `undeclared`（插件/定义式工具没有 `TOOL_EFFECTS` 条目）。
+   取证：`mcpToolWrapperRisk.test.ts`（6 项，含「只有自报 ⇒ undeclared」）、`riskClassDeclared.test.ts`（+1 项）、
+   `lint:tool-risk`（71 个内建工具仍 0 未声明 ⇒ 内建面无回归）；
 2. ✅ **已落地（2026-11-27）**：`deny` 必须先于 allowlist 的**顺序断言** —— `lint:permission-single-source` 新增判据 ⑦：
    `BashTool.runSecurityGates` 的函数体里 4 道 deny 门（`checkPathSafety` / `checkBashDangerousCommand` /
    `checkAstAndAnalyzer` / `checkPowerShellWrapper`）的首个调用位置必须早于 `checkWhitelistAndSandbox`；

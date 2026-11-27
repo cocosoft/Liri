@@ -15,12 +15,19 @@
  *   2. 工具**静态声明** `riskClass`
  *   3. `sandboxLevel === 'execution'` ⇒ `shell`（能力声明位，见 `ToolContract` A-4）
  *   4. `TOOL_EFFECTS[name].sideEffect`：`none` ⇒ read / `local` ⇒ write / `external` ⇒ external
- *   5. 工具自报 `isReadOnly(input) === true` ⇒ read
- *   6. 其余 ⇒ `undeclared`（**不猜**；由裁决方按"未声明"处理，仍询问）
+ *   5. 其余 ⇒ `undeclared`（**不猜**；由裁决方按"未声明"处理，仍询问）
+ *
+ * ## §13.4 ①（2026-11-27）：**自报只读不再是风险声明**
+ *
+ * 原第 5 步「`isReadOnly(input) === true` ⇒ read」是动态工具（MCP / 插件）的**兜底放行**通道：
+ * 这些工具没有 `TOOL_EFFECTS` 条目，自报"只读"即可绕过审批 —— 等于把档位交给被審对象自述。
+ * 现口径：**要免问必须在 `riskClass` / `riskClassFor` / `getRiskClass` 里显式声明**；
+ * 动态工具在各自包装器上声明（MCP 只认服务端 `annotations.readOnlyHint === true`；
+ * 定义式/插件工具一律 `undeclared`）。`isReadOnly` 仅保留"声明与自报冲突时保守降级"的用途。
  *
  * ## 边界
  * - 本模块**只读**：不参与注册、不改变执行，纯派生；
- * - 未注册/第三方工具（无 `TOOL_EFFECTS` 条目）⇒ 只能靠 `riskClass*` 或 `isReadOnly`；
+ * - 未注册/第三方工具（无 `TOOL_EFFECTS` 条目）⇒ 只能靠 `riskClass*`；自报只读**不**构成声明；
  * - 本模块位于 `tools/`，`permission/` 反向引用它属**同层工具域**（`toolEffects` 是叶子模块，
  *   不引 permission），不构成循环依赖。
  */
@@ -81,10 +88,7 @@ export function deriveToolRiskClass(
     return 'external';
   }
 
-  // 5. 工具自报只读
-  if (readOnlySelfReport(tool, input) === true) return 'read';
-
-  // 6. 不猜
+  // 5. 不猜（§13.4 ①：自报 `isReadOnly` 不再构成风险声明 —— 免问必须在 1/2/4 显式声明）
   return 'undeclared';
 }
 

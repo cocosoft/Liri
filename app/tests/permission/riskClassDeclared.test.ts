@@ -6,7 +6,10 @@
  *
  * 背景（真机日志）：`inferRiskClass('pdf')` 不匹配任何名字关键词 ⇒ 兜底 `SHELL`
  * ⇒ 只读的 `pdf extract/info` 每次调用都要人工审批（同一会话实测 6 次）。
- * 现口径：`riskClassFor` > `riskClass` > `TOOL_EFFECTS`/`sandboxLevel` > `isReadOnly` > `undeclared`。
+ * 现口径：`riskClassFor` > `riskClass` > `TOOL_EFFECTS`/`sandboxLevel` > `undeclared`。
+ * **`isReadOnly` 自报不参与判定**（§13.4 ①，2026-11-27）：动态工具（MCP / 插件）没有
+ * `TOOL_EFFECTS` 条目，自报"只读"不得成为自动放行依据 —— 免问必须在包装器的
+ * `getRiskClass()` 里显式声明（见 `mcpToolWrapperRisk.test.ts`）。
  */
 
 import { describe, it, expect } from 'bun:test';
@@ -51,6 +54,12 @@ describe('PR-0：工具声明式风险（混合工具）', () => {
     expect(resolveRiskClass({ name: 'totally_unknown_tool' }, {})).toBe(
       RiskClass.UNDECLARED
     );
+  });
+
+  it('§13.4 ①：自报 isReadOnly 不再构成风险声明（动态工具不得借此免审批）', () => {
+    const selfReported = { name: 'plugin_tool', isReadOnly: () => true };
+    expect(deriveToolRiskClass(selfReported, {})).toBe('undeclared');
+    expect(resolveRiskClass(selfReported, {})).toBe(RiskClass.UNDECLARED);
   });
 
   it('只传工具名（过渡调用方）⇒ 沿用旧启发式，行为零变更', () => {

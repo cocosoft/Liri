@@ -128,7 +128,10 @@ const RISK_CLASS_BY_DECLARATION: Record<ToolRiskClass, RiskClass> = {
  * 解析本次调用的风险类别（PR-0，**统一入口**）。
  *
  * 优先级：`riskClassFor(input)` > `riskClass` > `tool.getRiskClass(input)`
- * （由工具侧结合 `TOOL_EFFECTS`/`sandboxLevel` 派生）> `isReadOnly` > `UNDECLARED`。
+ * （由工具侧结合 `TOOL_EFFECTS`/`sandboxLevel` 派生）> `UNDECLARED`。
+ *
+ * **自报 `isReadOnly` 不参与判定**（§13.4 ①，2026-11-27）：它是工具自述，不是风险声明；
+ * 动态工具（MCP / 插件）必须在自己包装器的 `getRiskClass()` 里显式声明。
  *
  * - 传**工具对象**：走声明/派生 —— 这是正确口径，`pdf` 等只读工具由此免审批；
  * - 只传**工具名**（过渡）：沿用已弃用的 `inferRiskClass`，保证未改造调用点**行为零变更**。
@@ -168,16 +171,14 @@ export function resolveRiskClass(
     }
   }
 
-  // 4) 自报只读
-  if (typeof tool.isReadOnly === 'function') {
-    try {
-      if (tool.isReadOnly(input)) return RiskClass.READ;
-    } catch {
-      // @ignore-catch — 自报异常 ⇒ 视为未声明
-    }
-  }
-
-  // 5) 不猜
+  // 4) 不猜
+  //
+  // §13.4 ①（2026-11-27）：**删除**「自报 `isReadOnly === true` ⇒ READ」的兜底。
+  // 动态工具（MCP / 插件）没有 `TOOL_EFFECTS` 条目，自报只读即可自动放行等于把档位
+  // 交给被审对象自述。现要求：免问必须在 1) `riskClassFor` / 2) `riskClass` /
+  // 3) `getRiskClass`（工具侧按 `TOOL_EFFECTS` 派生）里**显式声明**；
+  // 动态工具的包装器已各自补 `getRiskClass`（MCP 只认显式 `readOnlyHint`，
+  // 定义式/插件一律 `undeclared`）。无法声明 ⇒ `UNDECLARED`（仍询问）。
   return RiskClass.UNDECLARED;
 }
 

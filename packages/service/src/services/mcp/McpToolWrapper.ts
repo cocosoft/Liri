@@ -8,6 +8,7 @@ import type {
   Tool,
   ToolInfo,
   ToolParam,
+  ToolRiskClass,
 } from '@openliri/infra/utils/toolContract';
 import type { ToolUseContext } from '@openliri/infra/utils/toolContract';
 import type { ToolResult } from '@openliri/infra/utils/toolContract';
@@ -82,6 +83,17 @@ export class McpToolWrapper implements Tool {
    */
   isReadOnly(_input?: Record<string, unknown>): boolean {
     return this.annotations?.readOnlyHint === true;
+  }
+
+  /**
+   * §13.4 ①（2026-11-27）：风险类别必须**显式声明**，不再靠 `isReadOnly` 兜底放行。
+   *
+   * 动态工具（MCP）没有 `TOOL_EFFECTS` 条目 ⇒ 自报只读不得成为自动放行的唯一依据。
+   * 这里把「服务端显式 `annotations.readOnlyHint === true`」提升为**声明**：
+   * 只有它给 `read`，其余一律 `undeclared`（⇒ 人工审批）。
+   */
+  getRiskClass(): ToolRiskClass {
+    return this.annotations?.readOnlyHint === true ? 'read' : 'undeclared';
   }
 
   /** MCP 规范：`destructiveHint` 缺省视为 true（仅显式 false 表示纯增量更新） */

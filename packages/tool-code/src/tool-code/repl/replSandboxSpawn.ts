@@ -203,6 +203,26 @@ function unavailable(
 }
 
 /**
+ * 从 `where.exe` 的输出里挑一个 helper 能启动的程序（纯函数，便于单测）。
+ *
+ * ⚠️ 2026-11-27 真机：`where npx` 会先列出**无扩展名的 POSIX 脚本**（`C:\Program Files\nodejs\npx`），
+ * 再列 `npx.cmd`。旧实现只看第一行 ⇒ 分类失败 ⇒ **生产环境 `typescript` REPL 恒降级**
+ * （`windows-unresolvable-command`；离线 fixture 只有一个 `.cmd` 才没暴露）。
+ * 现按行扫描，返回**第一个可分类**的路径（`.exe` / `.cmd` / `.bat`）。
+ */
+export function pickWinProgramFromWhereOutput(
+  stdout: string
+): WinResolvedProgram | null {
+  for (const line of stdout.split(/\r?\n/)) {
+    const path = line.trim();
+    if (!path) continue;
+    if (/\.exe$/i.test(path)) return { program: path, viaCmd: false };
+    if (/\.(cmd|bat)$/i.test(path)) return { program: path, viaCmd: true };
+  }
+  return null;
+}
+
+/**
  * 解析 Windows 上可被 helper 启动的目标（`where.exe` 兜底）。
  *
  * `.exe` ⇒ 直接 CreateProcess；`.cmd` / `.bat` ⇒ 返回 `viaCmd: true`（上层经 `cmd.exe` 转交）。
@@ -226,11 +246,7 @@ function defaultResolveWinProgram(command: string): WinResolvedProgram | null {
       windowsHide: true,
     });
     if (out.status !== 0 || !out.stdout) return null;
-    const first = out.stdout
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .find(Boolean);
-    return first ? classify(first) : null;
+    return pickWinProgramFromWhereOutput(out.stdout);
   } catch {
     // @ignore-catch 解析失败 ⇒ 视为不可沙箱化（走降级/拒绝分支，不臆造路径）
     return null;

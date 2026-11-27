@@ -16,6 +16,7 @@ import { join } from 'node:path';
 
 import {
   assertReplSandboxPlanUsable,
+  pickWinProgramFromWhereOutput,
   planReplSandboxSpawn,
   quoteWindowsCommandLineArg,
 } from '@openliri/tool-code/repl/replSandboxSpawn';
@@ -384,6 +385,29 @@ describe('planReplSandboxSpawn：Windows Low IL', () => {
     expect(p.mode).toBe('windows-low-il');
     // 字面引号 ⇒ `\"`；结尾反斜杠 ⇒ 双写（否则会吃掉闭合引号）
     expect(p.env.LIRI_REPL_CMD).toBe('"C:/x/run.cmd" "x\\"y" "C:\\dir\\\\"');
+  });
+
+  // 2026-11-27 真机：`where npx` 首行是**无扩展名**的 POSIX 脚本（`…\nodejs\npx`），
+  // 旧实现只看首行 ⇒ 生产环境 typescript REPL 恒降级。
+  it('`where.exe` 首行无扩展名 ⇒ 跳到下一个可分类项（不误判为不可解析）', () => {
+    const stdout = [
+      'C:\\Program Files\\nodejs\\npx',
+      'C:\\Program Files\\nodejs\\npx.cmd',
+      '',
+    ].join('\r\n');
+    expect(pickWinProgramFromWhereOutput(stdout)).toEqual({
+      program: 'C:\\Program Files\\nodejs\\npx.cmd',
+      viaCmd: true,
+    });
+    // `.exe` 优先于同目录的 `.cmd`（`where` 顺序即返回顺序）
+    expect(
+      pickWinProgramFromWhereOutput(
+        'C:\\node\\node.exe\r\nC:\\node\\node.cmd\r\n'
+      )
+    ).toEqual({ program: 'C:\\node\\node.exe', viaCmd: false });
+    // 全部不可分类 / 空输出 ⇒ null（不猜）
+    expect(pickWinProgramFromWhereOutput('C:\\x\\npx\r\n\r\n')).toBeNull();
+    expect(pickWinProgramFromWhereOutput('')).toBeNull();
   });
 
   it('`.cmd` 且参数含 `%` ⇒ 临时批处理包装（`%` 写成 `%%`），会话结束删除包装文件', async () => {

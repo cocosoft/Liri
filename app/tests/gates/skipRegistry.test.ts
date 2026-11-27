@@ -222,6 +222,7 @@ const SKIP_REGISTRY: SkipEntry[] = [
     module: 'tools',
     severity: 'env' as SkipSeverity,
   })),
+  // 2026-11-27（C-2 补）：真实 ts-node REPL 在管道 stdio 下不执行（见 SG-7 ④ 取证）⇒ 不设用例
 
   // ── 原 `app/src/**`（2026-11-13 query 拆包后已迁入 `app/tests/query/`）──────
   ...Array.from({ length: 10 }, (_, i) => ({

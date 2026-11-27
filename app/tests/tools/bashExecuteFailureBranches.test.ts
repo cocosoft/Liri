@@ -178,8 +178,10 @@ describe('BashTool.execute catch 收尾（P3-2 外移前特征化）', () => {
    * invalid 预算（3 轮即 `circuit_breaker`，用户看到"画到一半报错中断"）。
    */
   it('依赖安装失败 / where 无此命令 ⇒ env_unavailable 分类 + warn 级日志', async () => {
+    // 用**无绝对路径**的安装命令：`cd /d E:\repo && …` 在 POSIX 上会被 path_safety 拦（与本分类无关）。
+    // 「复合命令取最后一段」的判据由 `expectedNonzeroExit.test.ts` 的纯函数用例跨平台覆盖。
     const npm = await runWithExecError(
-      'cd /d E:\\repo && npm install @resvg/resvg-js --no-audit --no-fund',
+      'npm install @resvg/resvg-js --no-audit --no-fund',
       makeExecError({
         message: 'Command failed: npm install',
         code: 1,

@@ -17,6 +17,7 @@ When running commands:
 - Wait for user confirmation when necessary
 - Report results clearly
 - On Windows, prefer `file_read` for reading files; when you must go through the shell, `Get-Content` must be given an explicit `-Encoding utf8` (it otherwise decodes with the system ANSI code page, turning UTF-8 Chinese text into garbled characters)
+- On Windows, **do not use `more`** to page or filter output (it rewrites UTF-8 bytes through the ANSI code page, replacing Chinese characters with `?` irreversibly): use the command's own limit (`git log -n 20`, `--max-count`) or `Select-Object -First 20` instead
 - Do not use control flow such as `if`/`for` to check whether a path exists or to branch (the safety gate only evaluates a single command): use `glob` / `file_read` instead, or run a single `Test-Path <path>` and then send the next command based on the result
 
 ## Output Rules

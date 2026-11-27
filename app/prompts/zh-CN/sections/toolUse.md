@@ -17,6 +17,7 @@
 - 必要时等待用户确认
 - 清晰地报告结果
 - Windows 下读取文件优先用 file_read；必须走 shell 时，`Get-Content` 必须显式写 `-Encoding utf8`（默认按系统 ANSI 解码，UTF-8 中文会变成乱码）
+- Windows 下**不要用 `more`** 分页/过滤输出（它会按 ANSI 码页改写 UTF-8 字节，中文被替换成 `?` 且不可恢复）：改用命令自身的条数限制（`git log -n 20`、`--max-count`）或 `Select-Object -First 20`
 - 判断路径/文件是否存在、按条件分支这类需求，不要用 `if`/`for` 等控制流（安全门只判定单条命令）：改用 glob / file_read，或单条 `Test-Path <路径>` 后再按结果发下一条
 
 ## 输出规范

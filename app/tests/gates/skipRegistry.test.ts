@@ -214,6 +214,14 @@ const SKIP_REGISTRY: SkipEntry[] = [
     module: 'tools',
     severity: 'env' as SkipSeverity,
   })),
+  // 2026-11-27（C-2）：typescript 离线 e2e 的 2 处条件 skip（需本地 node 起解释器）
+  ...Array.from({ length: 2 }, (_, i) => ({
+    file: 'app/tests/tools/repl.integration.test.ts',
+    match: '!nodeAvailable',
+    reason: `typescript REPL 离线 e2e（第 ${i + 1} 处）—— 需本地 node`,
+    module: 'tools',
+    severity: 'env' as SkipSeverity,
+  })),
 
   // ── 原 `app/src/**`（2026-11-13 query 拆包后已迁入 `app/tests/query/`）──────
   ...Array.from({ length: 10 }, (_, i) => ({

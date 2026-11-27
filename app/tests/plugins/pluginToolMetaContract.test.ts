@@ -68,12 +68,21 @@ describe('buildRegisteredTool：风险 / 只读透传', () => {
     expect(deriveToolRiskClass(tool)).toBe('undeclared');
   });
 
-  it('声明 readOnly ⇒ isReadOnly() 为 true', () => {
+  // §13.4 ①（2026-11-27）：`readOnly` 是自报，不构成风险声明 ⇒ 插件工具仍需显式 `riskClass`
+  it('声明 readOnly 只是自报 ⇒ 风险仍 undeclared（不据此自动放行）', () => {
     const tool = buildRegisteredTool(
       decl({ readOnly: true }),
       async () => 'ok'
     );
     expect(tool.isReadOnly()).toBe(true);
+    expect(deriveToolRiskClass(tool)).toBe('undeclared');
+  });
+
+  it('显式声明 riskClass=read ⇒ 判 read（免问只能来自声明）', () => {
+    const tool = buildRegisteredTool(
+      decl({ readOnly: true, riskClass: 'read' }),
+      async () => 'ok'
+    );
     expect(deriveToolRiskClass(tool)).toBe('read');
   });
 

@@ -7,9 +7,9 @@
  */
 import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
 import { spawnSync } from 'child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { REPLToolImpl } from '@openliri/tool-code/repl/REPLToolImpl';
 import { replSessionManager } from '@openliri/tool-code/repl/REPLSessionManager';
 import type { REPLSession } from '@openliri/tool-code/repl/types/REPLTool';
@@ -144,6 +144,78 @@ describe('REPLToolImpl 真实 spawn（P3-1 完成标记协议）', () => {
       );
       expect(denied.success).toBe(false);
       expect(denied.error).toBeTruthy();
+    },
+    15000
+  );
+});
+
+/**
+ * C-2（2026-11-27）：`typescript` 语言的**离线** e2e。
+ *
+ * `typescript` 映射为 `npx ts-node -i`，而 CI 无网络（`npx` 首次要联网装 ts-node）⇒
+ * 用一个假的 `npx`（Windows = `npx.cmd`，POSIX = 可执行 shell 脚本）忽略参数、直接起 `node -i`。
+ * 因此本组验证的是**typescript 路径的启动链**（`npx` 解析 → `.cmd` 转交 / 沙箱包裹 → 交互与跨执行状态），
+ * **不是** ts-node 本身 —— ts-node 的真实行为需联网环境，属 C-2 的如实边界。
+ */
+const nodeAvailable = (() => {
+  try {
+    return spawnSync('node', ['--version'], { stdio: 'pipe' }).status === 0;
+  } catch {
+    return false;
+  }
+})();
+
+describe('REPLToolImpl：typescript（离线 npx fixture，C-2）', () => {
+  const tool = new REPLToolImpl();
+  let fixtureDir = '';
+  let originalPath = '';
+  let session: REPLSession | undefined;
+
+  beforeAll(async () => {
+    if (!nodeAvailable) return;
+    fixtureDir = mkdtempSync(join(tmpdir(), 'repl-npx-fixture-'));
+    const isWin = process.platform === 'win32';
+    const shim = join(fixtureDir, isWin ? 'npx.cmd' : 'npx');
+    writeFileSync(
+      shim,
+      isWin ? '@echo off\r\nnode -i\r\n' : '#!/bin/sh\nexec node -i\n',
+      'utf8'
+    );
+    if (!isWin) chmodSync(shim, 0o755);
+    // Windows 的 `where.exe` 解析读的是 `process.env`（不看 options.env）⇒ 必须改全局 PATH；
+    // 非 Windows 只影响子进程 PATH，同样走这里以保持两侧一致。
+    originalPath = process.env.PATH ?? '';
+    process.env.PATH = `${fixtureDir}${delimiter}${originalPath}`;
+    session = await tool.startREPL('typescript', {
+      cwd: fixtureDir,
+      timeout: EXEC_TIMEOUT_MS,
+    });
+  });
+
+  afterAll(async () => {
+    if (session) await tool.stopREPL(session);
+    replSessionManager.clearSessions();
+    if (fixtureDir) rmSync(fixtureDir, { recursive: true, force: true });
+    if (originalPath) process.env.PATH = originalPath;
+  });
+
+  test.skipIf(!nodeAvailable)(
+    '启动后可执行（npx → 解释器的转交链通）',
+    async () => {
+      const r = await tool.executeCode(session!, '1+1');
+      expect(r.success).toBe(true);
+      expect(r.output).toContain('2');
+    },
+    15000
+  );
+
+  test.skipIf(!nodeAvailable)(
+    '跨执行保留状态（同一进程）',
+    async () => {
+      await tool.executeCode(session!, 'const z = 21 * 2');
+      const r = await tool.executeCode(session!, 'z');
+      expect(r.success).toBe(true);
+      expect(r.output).toContain('42');
     },
     15000
   );

@@ -22,6 +22,7 @@ import {
 import {
   decideTerminalOutcome,
   isNonConvergedTermination,
+  selectRerollCandidates,
   shouldAutoApprovePlan,
 } from '../../src/tasks/lro/pureDecisions';
 import {
@@ -981,5 +982,103 @@ describe('审计摘要不得把「未终态步骤」算作完成（2026-11-08 �
       steps: [step('a', 'completed'), step('b', 'completed')],
     });
     expect(r.summary.startsWith('任务 未完全完成')).toBe(true);
+  });
+});
+
+/**
+ * P2-5（2026-11-28，台账 L15584）：非收敛失败步骤的**计划级一次性重跑**候选判定。
+ *
+ * 真机 `pdca_mw8lrnmb`：step_9（`node self_test.js`）因当时 `game.js` 有语法错而 aborted ⇒
+ * failed(non_converged)；随后 step_5 重写 game.js 修好缺陷，但 step_9 已永久失败
+ *（步骤内重试对 aborted 明确不重试）。本组锁定"计划级补跑一次"的候选口径。
+ */
+describe('P2-5：非收敛失败步骤的计划级重跑候选', () => {
+  const mk = (
+    id: string,
+    status: string,
+    terminationReason?: string,
+    dependsOn?: string[]
+  ) => ({ id, status, terminationReason, dependsOn });
+
+  it('aborted + 依赖已完成 ⇒ 选中（真机 step_9 场景）', () => {
+    expect(
+      selectRerollCandidates({
+        steps: [mk('s1', 'completed'), mk('s2', 'failed', 'aborted', ['s1'])],
+        alreadyRerolled: new Set<string>(),
+        halted: false,
+        limit: 3,
+      })
+    ).toEqual(['s2']);
+  });
+
+  it('预算类（max_turns / output_budget_exhausted）同样可补跑', () => {
+    expect(
+      selectRerollCandidates({
+        steps: [
+          mk('a', 'failed', 'max_turns'),
+          mk('b', 'failed', 'output_budget_exhausted'),
+        ],
+        alreadyRerolled: new Set<string>(),
+        halted: false,
+        limit: 3,
+      })
+    ).toEqual(['a', 'b']);
+  });
+
+  it('已重跑过 / halted ⇒ 不选（每步每 run 至多一次）', () => {
+    const steps = [mk('a', 'failed', 'aborted')];
+    expect(
+      selectRerollCandidates({
+        steps,
+        alreadyRerolled: new Set(['a']),
+        halted: false,
+        limit: 3,
+      })
+    ).toEqual([]);
+    expect(
+      selectRerollCandidates({
+        steps,
+        alreadyRerolled: new Set<string>(),
+        halted: true,
+        limit: 3,
+      })
+    ).toEqual([]);
+  });
+
+  it('依赖未完成 / 非"未收敛"失败 ⇒ 不选', () => {
+    expect(
+      selectRerollCandidates({
+        steps: [
+          mk('s1', 'failed', 'aborted'),
+          mk('s2', 'failed', 'aborted', ['s1']),
+        ],
+        alreadyRerolled: new Set<string>(),
+        halted: false,
+        limit: 3,
+      })
+    ).toEqual(['s1']);
+    expect(
+      selectRerollCandidates({
+        steps: [mk('x', 'failed', 'awaiting_approval')],
+        alreadyRerolled: new Set<string>(),
+        halted: false,
+        limit: 3,
+      })
+    ).toEqual([]);
+  });
+
+  it('limit 截断（多步同时 non_converged 时只补前 N 步）', () => {
+    expect(
+      selectRerollCandidates({
+        steps: [
+          mk('a', 'failed', 'aborted'),
+          mk('b', 'failed', 'io_loop'),
+          mk('c', 'failed', 'no_tool_call'),
+        ],
+        alreadyRerolled: new Set<string>(),
+        halted: false,
+        limit: 2,
+      })
+    ).toEqual(['a', 'b']);
   });
 });

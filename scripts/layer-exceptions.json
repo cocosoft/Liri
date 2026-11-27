@@ -27,6 +27,14 @@
       "plan": "P2-4①（2026-11-28）新增 foldMessageProjection（投影折叠，3 行）后 2002 行：该文件改动前即 1999 行、已到 2000 行边界。按消息 / 会话 / 压缩三簇拆分后撤销本例外，过期即失效",
       "expiresAt": "2027-03-31",
       "owner": "@arch-lead"
+    },
+    {
+      "id": "FSE-002",
+      "ruleId": "R04-001",
+      "file": "app/src/tasks/PlanDrivenLoop.ts",
+      "plan": "P2-5（2026-11-28）新增非收敛失败步骤的计划级重跑簇（表 2105 行）：该文件改动前 1999 行、已到 2000 行边界。拆分计划＝把「步骤裁决 + 重跑 + 结果汇总」整簇外移到 app/src/tasks/lro/（该目录已有同类外移先例），完成后撤销本例外",
+      "expiresAt": "2027-03-31",
+      "owner": "@arch-lead"
     }
   ],
   "barrelExceptions": [

@@ -37,6 +37,7 @@ import {
   STEP_STATUS_CANCELLED,
   STEP_STATUS_COMPLETED,
   STEP_STATUS_FAILED,
+  STEP_STATUS_PENDING,
 } from './TaskOrchestrator.js';
 // D3 二期（2026-11-14）：既有计划 → 可执行投影（系统级续跑）
 import {
@@ -49,7 +50,10 @@ import {
   STEP_VERDICT_PARTIAL,
 } from './stepVerdict.js';
 // 2026-11-27：非收敛终止的唯一事实源（LRO 经典链早已据此落 failed，PDL 本次对齐）
-import { isNonConvergedTermination } from './lro/pureDecisions.js';
+import {
+  isNonConvergedTermination,
+  selectRerollCandidates,
+} from './lro/pureDecisions.js';
 import { emitPdcaLiveEvent } from './PdcaLiveEvents.js';
 import { writePdcaCheckpoint } from './PdcaWorkItemBridge.js';
 import { goalMetricsService } from './db/GoalMetricsService.js';
@@ -237,6 +241,14 @@ export interface PlanDrivenLoopConfig {
  * 连续 2 步受阻已足以判定"缺的是同一个前提"，继续跑只会等比例浪费 token 与时间。
  */
 const MAX_CONSECUTIVE_BLOCKED_STEPS = 2;
+
+/**
+ * P2-5（2026-11-28，台账 L15584）：一次 run 内**计划级重跑**的步数上限。
+ *
+ * 每步本身已至多一次（`rerolledStepIds`），此处再加总量闸：多个步骤同时 non_converged 时
+ * 只补跑前 N 步，避免"全线重跑"把小故障放大成整轮成本。
+ */
+const REROLL_MAX_STEPS_PER_RUN = 3;
 
 /** P2-2（2026-11-06）：步骤 prompt 注入的任务源上限（防超长计划吃满上下文） */
 const MAX_STEP_PLAN_CHARS = 6000;
@@ -486,6 +498,11 @@ export class PlanDrivenLoop {
 
   private plan: Plan | null = null;
   private stepResults: StepResult[] = [];
+  /**
+   * P2-5（2026-11-28，台账 L15584）：本次 run 内**已重跑过**的非收敛失败步骤。
+   * 每步只给它一次计划级重跑机会，避免"aborted ⇒ 重跑 ⇒ 再 aborted"的循环。
+   */
+  private readonly rerolledStepIds = new Set<string>();
   private startTime: number = 0;
   private totalTokens: number = 0;
   private aborted: boolean = false;
@@ -555,6 +572,8 @@ export class PlanDrivenLoop {
     this.startTime = Date.now();
     this.stepResults = [];
     this.totalTokens = 0;
+    // P2-5（2026-11-28，台账 L15584）：每次 run 重置"已重跑"账本（每 run 每步至多一次）
+    this.rerolledStepIds.clear();
     this.aborted = false;
     this.budgetExhausted = false;
     // P2-2（2026-11-06）：保存完整任务源，供每步 prompt 回锚（Plan.description 只有 200 字）
@@ -1205,6 +1224,18 @@ export class PlanDrivenLoop {
       });
     }
 
+    // P2-5（2026-11-28，台账 L15584）：**非收敛失败步骤的计划级一次性重跑** ——
+    // 步骤内重试对 `aborted` 明确不重试（避免同一守卫立刻再中止），但"上游步骤随后修好了
+    // 缺陷"这个前提只有计划级看得见（真机 `pdca_mw8lrnmb`：step_5 修好 game.js 后 step_9 永久失败）。
+    await this._rerollNonConvergedSteps({
+      subtasks,
+      idxById,
+      stepOutputs,
+      depStatusById,
+      budgetExhausted,
+      cascadeAborted,
+    });
+
     // P2（08-09）：广播计划完成
     if (this.plan) {
       const progress = taskOrchestrator.getPlanProgress(this.plan.id);
@@ -1262,6 +1293,81 @@ export class PlanDrivenLoop {
       subtasks.length,
       blockedSteps
     );
+  }
+
+  /**
+   * P2-5（2026-11-28，台账 L15584）：**非收敛失败步骤的计划级一次性重跑**。
+   *
+   * 只做三件事：① 用纯函数挑候选（`selectRerollCandidates`）；② 复位该步的失败事实；
+   * ③ 按既有 `_executeOneStep` 再跑一次（不新建重试框架）。每步每 run 至多一次，
+   * 且 `halted`（中止 / 预算耗尽 / 空转熔断 / 等待审批）时整体跳过。
+   */
+  private async _rerollNonConvergedSteps(params: {
+    subtasks: DecompositionResult['subTasks'];
+    idxById: Map<string, number>;
+    stepOutputs: Map<string, string>;
+    depStatusById: Map<string, TopoTaskStatus>;
+    /** 本轮是否已因预算耗尽提前收尾（由调用方传入，避免把判定堆进 `_executeDecomposed` 的复杂度） */
+    budgetExhausted: boolean;
+    /** 本轮是否已因连续受阻熔断剩余步骤 */
+    cascadeAborted: boolean;
+  }): Promise<void> {
+    const plan = this.plan;
+    if (!plan) return;
+    const candidates = selectRerollCandidates({
+      steps: plan.steps.map((s) => ({
+        id: s.id,
+        status: s.status,
+        terminationReason: s.terminationReason,
+        dependsOn: s.dependsOn,
+      })),
+      alreadyRerolled: this.rerolledStepIds,
+      halted:
+        this.aborted ||
+        this.pausedForApproval ||
+        params.budgetExhausted ||
+        params.cascadeAborted,
+      limit: REROLL_MAX_STEPS_PER_RUN,
+    });
+    if (candidates.length === 0) return;
+    logger.info('非收敛失败步骤进入计划级重跑', {
+      sessionId: this.sessionId,
+      planId: plan.id,
+      stepIds: candidates,
+      limit: REROLL_MAX_STEPS_PER_RUN,
+    });
+    for (const stepId of candidates) {
+      if (this.aborted || this.pausedForApproval) break;
+      const i = plan.steps.findIndex((s) => s.id === stepId);
+      const step = i >= 0 ? plan.steps[i] : undefined;
+      const task = i >= 0 ? params.subtasks[i] : undefined;
+      if (!step || !task) continue;
+      this.rerolledStepIds.add(stepId);
+      // 复位失败事实（error / result / terminationReason）：不清掉的话，
+      // `markStepFailed` 的"已终态即跳过"守卫与审查门会把旧失败继续当本轮结论
+      step.status = STEP_STATUS_PENDING;
+      step.error = undefined;
+      step.result = undefined;
+      step.terminationReason = undefined;
+      // 同一 stepId 只保留最新一次结果（否则已完成的步仍被旧的 failed 记录计数）
+      this.stepResults = this.stepResults.filter((r) => r.stepId !== stepId);
+      const status = await this._executeOneStep(
+        task,
+        params.subtasks,
+        i,
+        stepId,
+        params.idxById,
+        params.stepOutputs,
+        params.depStatusById
+      );
+      params.depStatusById.set(task.id, status);
+      logger.info('计划级重跑结束', {
+        sessionId: this.sessionId,
+        planId: plan.id,
+        stepId,
+        status,
+      });
+    }
   }
 
   /**

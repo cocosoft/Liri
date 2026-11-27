@@ -105,6 +105,50 @@ export function isNonConvergedTermination(reason?: string): boolean {
 }
 
 /**
+ * P2-5（2026-11-28，台账 L15584）：**计划级一次性重跑**候选判定（纯函数，可单测）。
+ *
+ * 背景（真机 `pdca_mw8lrnmb`）：step_9（`node self_test.js`）因当时 `game.js` 有语法错而以
+ * `aborted` 收尾 ⇒ `failed(non_converged)`；随后 step_5 重写 `game.js` 修好了缺陷，
+ * 但 step_9 **永久失败**（步骤内重试对 `aborted` 明确不重试，避免同一守卫立刻再中止）。
+ * 「上游步骤后来修好了缺陷」这个前提只有**计划级**看得见。
+ *
+ * 口径（结构化、有界，不引入新重试框架）：
+ *   - 只挑 `isNonConvergedTermination` 的 failed 步骤（预算/中止/循环/异常等"未收敛"）；
+ *   - 每步**每 run 至多一次**（`alreadyRerolled` 由调用方记账）；
+ *   - 前置依赖必须已 completed（否则重跑没有新前提；未登记的依赖视为无约束）；
+ *   - 运行已 halted（用户中止 / 预算耗尽 / 空转熔断 / 等待审批）⇒ 一律不重跑。
+ */
+export function selectRerollCandidates(input: {
+  steps: ReadonlyArray<{
+    id: string;
+    status: string;
+    terminationReason?: string;
+    dependsOn?: readonly string[];
+  }>;
+  alreadyRerolled: ReadonlySet<string>;
+  halted: boolean;
+  limit: number;
+}): string[] {
+  if (input.halted || input.limit <= 0) return [];
+  const statusById = new Map<string, string>();
+  for (const s of input.steps) statusById.set(s.id, s.status);
+  const picked: string[] = [];
+  for (const s of input.steps) {
+    if (picked.length >= input.limit) break;
+    if (s.status !== TaskStatus.FAILED) continue;
+    if (!isNonConvergedTermination(s.terminationReason)) continue;
+    if (input.alreadyRerolled.has(s.id)) continue;
+    const depsSatisfied = (s.dependsOn ?? []).every((dep) => {
+      const depStatus = statusById.get(dep);
+      return depStatus === undefined || depStatus === TaskStatus.COMPLETED;
+    });
+    if (!depsSatisfied) continue;
+    picked.push(s.id);
+  }
+  return picked;
+}
+
+/**
  * U-02（2026-10-19）：计划审批门是否应**自动通过**（无人值守模式）。
  *
  * 语义：仅当调用方要求审批、且当前处于无人值守模式时才自动通过；其余情况保持人工审批。

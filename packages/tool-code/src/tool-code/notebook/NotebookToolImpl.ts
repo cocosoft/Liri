@@ -171,17 +171,16 @@ export class NotebookToolImpl implements NotebookTool {
   /**
    * P0-1: 回收闲置超时的 REPL 会话（进程 kill + 从管理器移除），防止子进程常驻泄漏。
    * 默认 10min 无执行即回收；回收失败不影响主流程。
+   *
+   * 2026-11-27：清单查询与回收顺序收敛到 `REPLToolImpl.reclaimIdleSessions`
+   *（查询 → `stopREPL`：kill 子进程 + `ProcessRegistry` 收终态 + 释放 Windows 会话授权）。
    */
   private recycleIdleReplSessions(): void {
-    const now = Date.now();
-    for (const session of replSessionManager.getSessions()) {
-      const idleMs = now - session.lastActivity.getTime();
-      if (idleMs > NotebookToolImpl.REPL_IDLE_TIMEOUT_MS) {
-        void this.replTool.stopREPL(session).catch(() => {
-          // 进程可能已退出或已在别处被回收，忽略
-        });
-      }
-    }
+    void this.replTool
+      .reclaimIdleSessions(NotebookToolImpl.REPL_IDLE_TIMEOUT_MS)
+      .catch(() => {
+        // 进程可能已退出或已在别处被回收，忽略
+      });
   }
 
   /**

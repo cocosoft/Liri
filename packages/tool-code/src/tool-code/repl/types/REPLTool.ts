@@ -182,6 +182,12 @@ export interface REPLSession {
     mode: Exclude<ReplSandboxPlanMode, 'refuse'>;
     release?: () => Promise<void>;
   };
+
+  /**
+   * 2026-11-27：`ProcessRegistry` 登记项 id（REPL 子进程在 `/v1/sandbox/status` 的
+   * `processStats` 可见）。收敛终态后置空 ⇒ 退出事件不会重复收敛。
+   */
+  processEntryId?: string;
 }
 
 /**

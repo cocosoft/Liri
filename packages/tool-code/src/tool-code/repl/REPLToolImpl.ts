@@ -19,6 +19,12 @@ import {
   planReplSandboxSpawn,
 } from './replSandboxSpawn';
 import type { ReplSandboxPlan } from './replSandboxSpawn';
+// 2026-11-27：REPL 子进程登记进 ProcessRegistry（与 bash / code_run 同口径的可观测性）
+import {
+  CHILD_PROCESS_ERROR_EVENT,
+  PROCESS_STATUS,
+  processRegistry,
+} from '@modules/sandbox';
 // G1（2026-11-03）：spawn 前 cwd 判定
 import { describeUnusableSpawnCwd } from '@openliri/infra/utils/cwd';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
@@ -72,6 +78,7 @@ export class REPLToolImpl implements REPLTool {
       session.stdout = spawned.stdout;
       session.stderr = spawned.stderr;
       attachReplSandboxRelease(session, plan);
+      registerReplProcess(session, spawned.process, plan);
 
       session.setStatus(REPLSessionStatus.RUNNING);
       this.sessions.set(session.id, session);
@@ -137,6 +144,8 @@ export class REPLToolImpl implements REPLTool {
       };
 
       const handleTimeout = () => {
+        // 超时会 kill 子进程 ⇒ 观测面记 `timed_out`（与 bash / code_run 同词汇）
+        completeReplProcess(session, PROCESS_STATUS.timedOut);
         process.kill();
         session.setStatus(REPLSessionStatus.STOPPED);
         finish({
@@ -256,6 +265,8 @@ export class REPLToolImpl implements REPLTool {
     if (process) {
       process.kill();
     }
+    // 观测面：主动停止 ⇒ `killed`（自然退出走 `exit` 监听，见 `registerReplProcess`）
+    completeReplProcess(session, PROCESS_STATUS.killed);
     // SG-1：Windows Low IL 的会话级授权必须在进程结束后恢复（幂等；exit 事件可能已先触发）
     const release = session.sandbox?.release;
     const sandboxMode = session.sandbox?.mode;
@@ -266,6 +277,22 @@ export class REPLToolImpl implements REPLTool {
     session.setStatus(REPLSessionStatus.STOPPED);
     this.sessions.delete(session.id);
     replSessionManager.removeSession(session.id);
+  }
+
+  /**
+   * 2026-11-27：回收**闲置超时**的 REPL 会话（治"只合并/只删登记、不杀进程"）。
+   *
+   * 与 `replSessionManager.collectExpiredSessions`（纯查询）配合：查询 → 逐个 `stopREPL`
+   * ⇒ 子进程被 kill、`ProcessRegistry` 收敛终态、Windows 会话级授权被释放。
+   *
+   * @returns 实际回收的会话数
+   */
+  async reclaimIdleSessions(timeoutMs: number): Promise<number> {
+    const expired = replSessionManager.collectExpiredSessions(timeoutMs);
+    for (const session of expired) {
+      await this.stopREPL(session);
+    }
+    return expired.length;
   }
 
   /**
@@ -395,6 +422,53 @@ export function attachReplSandboxRelease(
   session.process?.once('exit', () => {
     void release();
   });
+}
+
+/**
+ * 2026-11-27：把 REPL 子进程登记进 `ProcessRegistry`（观测面）。
+ *
+ * 与 bash（S7）/ `code_run` 同口径：`/v1/sandbox/status` 的 `processStats` 里能看到
+ * **有沙箱包裹的 REPL 进程**（此前 REPL 完全不在观测面内）。
+ *
+ * 终态收敛：自然退出 ⇒ `completed`（带退出码）；spawn 失败 ⇒ `error`；
+ * 主动停止 / 超时由 `stopREPL` / `handleTimeout` 先收敛为 `killed` / `timed_out`。
+ */
+export function registerReplProcess(
+  session: Pick<REPLSession, 'processEntryId' | 'language'>,
+  child: ChildProcess,
+  plan: ReplSandboxPlan
+): void {
+  if (child.pid === undefined) return;
+  session.processEntryId = processRegistry.register({
+    pid: child.pid,
+    command: `repl:${session.language}`,
+    status: PROCESS_STATUS.running,
+    metadata: {
+      source: 'repl',
+      language: session.language,
+      mode: plan.mode,
+    },
+  });
+  child.once('exit', (code) => {
+    completeReplProcess(session, PROCESS_STATUS.completed, code ?? undefined);
+  });
+  child.once(CHILD_PROCESS_ERROR_EVENT, () => {
+    completeReplProcess(session, PROCESS_STATUS.error);
+  });
+}
+
+/**
+ * 收敛登记项终态（幂等：成功后清空 `processEntryId`，后续事件/调用都是 no-op）。
+ */
+export function completeReplProcess(
+  session: Pick<REPLSession, 'processEntryId'>,
+  status: Parameters<typeof processRegistry.complete>[1],
+  exitCode?: number
+): void {
+  const entryId = session.processEntryId;
+  if (!entryId) return;
+  session.processEntryId = undefined;
+  processRegistry.complete(entryId, status, exitCode);
 }
 
 /**

@@ -488,13 +488,14 @@ F3–F10 仍待办 ⇒ 本节原「本计划无剩余待办」表述已按事实
 验证：`typecheck` 通过；全量 `bun run ci` **13723 pass / 42 skip / 0 fail**；
 `lint:tool-governance`（69 pass / gap 0，矩阵已重生）、`lint:tool-interception-reasons`、`lint:arch`、`lint:consts` 通过。
 
-### 13.2 遗留项台账（F / SG；2026-11-27 两项目均已处置）
+### 13.2 遗留项台账（F / SG；2026-11-27 三项目均已处置）
 
 | ID | 问题 |
 |---|---|
 | — | F1–F30 已全部处理（F7/F8/F9 取证为非入口/未接线，接线前必须补授权；其余已修复） |
 | SG-1 | **已修复（2026-11-27）**：`notebook` / `repl` 的执行面已接入平台写隔离 —— `REPLToolImpl.startREPL` 先经 `repl/replSandboxSpawn.planReplSandboxSpawn` 计算 spawn 形态：Linux = `landlock-run <规则> -- <解释器>…`、macOS = `sandbox-exec -p <SBPL> -- <解释器>…`、Windows = `win-sandbox-run.exe --timeout-ms 0 -- <exe>…`（Low IL，会话期临时降完整性标签，`stopREPL` / 进程退出时恢复）。三种包裹都**透传 stdio** ⇒ marker 协议与跨执行状态不变。写白名单与 bash **同源**（`buildShellManagedWritableDirs` + `buildBashLandlockPolicy`，CS01）。不可用时：`failClosed=false` 降级普通 spawn 并 WARN（与 `code_run` 同口径）；`failClosed=true` ⇒ `refuse`（`SG1_REPL_SANDBOX_UNENFORCEABLE`）。取证：`app/tests/tools/replSandboxSpawn.test.ts`（16 项）+ `repl.integration.test.ts` 真机双向断言（工作区可写 / 家目录根写入被拒，Windows 实测通过）+ macOS `verify:sandbox-macos` 第 ⑥ 项。**Windows `.cmd/.bat`（如 `npx`）已补齐（2026-11-27）**：经 `cmd.exe /d /s /c` + 环境变量转交（`LIRI_REPL_CMD`），参数按 MSVCRT 规则加引号（含空格/双引号的值保真，`& | < > ^` 落引号内；仅 `%`/换行仍降级），真机冒烟 `exit=0` 通过；同批修掉 Low IL 授权链的两个真问题（`(IO)` 标签误判、降级了恢复不了的 High/System ⇒ 改为跳过），详见 `.trae/specs/windows-sandbox.md` §8.4 |
 | SG-2 | `notebook` 的 `path`（create/save/export 落点）已于 2026-11-27 纳入权限层写闸（`WRITE_PATH_GATED_TOOLS`），受保护路径 deny × 五档 |
+| SG-3 | **已修复（2026-11-27）**：REPL 进程生命周期 —— ①子进程此前**完全不在** `ProcessRegistry`（`/v1/sandbox/status` 的 `processStats` 看不到 notebook/repl 的执行进程）⇒ 现 `startREPL` 以 `status=running` 登记、自然退出 `completed` / spawn 失败 `error` / `stopREPL` `killed` / 执行超时 `timed_out` 收敛（幂等）；②`REPLSessionManager.cleanupExpiredSessions` 是**只删登记、不杀进程**的零调用实现 ⇒ 收敛为纯查询 `collectExpiredSessions` + `REPLToolImpl.reclaimIdleSessions`（查询 → `stopREPL`：kill + 收终态 + 释放 Windows 会话授权），`NotebookToolImpl` 的闲置回收改为复用它。取证：`app/tests/tools/replSessionLifecycle.test.ts`（8 项，含真实 spawn 的 running→killed） |
 
 ### 13.3 G9 结论订正（如实）
 

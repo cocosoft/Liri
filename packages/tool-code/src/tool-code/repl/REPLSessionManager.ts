@@ -61,21 +61,18 @@ export class REPLSessionManager {
   }
 
   /**
-   * 清理过期会话
+   * 2026-11-27：返回**闲置超时**的会话（**纯查询，不删、不杀**）。
+   *
+   * 旧实现 `cleanupExpiredSessions` 直接把会话从表里删掉 —— 子进程仍在跑、
+   * `ProcessRegistry` 条目停在 `running`、Windows Low IL 的会话级授权也不释放
+   * （全仓零调用，属未接线的危险实现，已删除）。回收请用
+   * `REPLToolImpl.reclaimIdleSessions()`：查询 → `stopREPL`（kill + 收敛终态 + 释放授权）。
    */
-  cleanupExpiredSessions(timeoutMs: number = 3600000): void {
+  collectExpiredSessions(timeoutMs: number = 3600000): REPLSession[] {
     const now = Date.now();
-    const expiredSessions: string[] = [];
-
-    for (const [id, session] of this.sessions) {
-      if (now - session.lastActivity.getTime() > timeoutMs) {
-        expiredSessions.push(id);
-      }
-    }
-
-    for (const id of expiredSessions) {
-      this.sessions.delete(id);
-    }
+    return Array.from(this.sessions.values()).filter(
+      (session) => now - session.lastActivity.getTime() > timeoutMs
+    );
   }
 
   /**

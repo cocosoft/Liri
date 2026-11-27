@@ -833,6 +833,8 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     // P2-4①（2026-11-28）：回合收尾折叠投影重复快照（底层无该能力即 no-op）
     foldMessageProjection: (sid) =>
       host.sessionGateway.foldMessageProjection(sid),
+    // P2-6（2026-11-28，台账 L16030①）：渠道绑定在统一收尾点落盘（跨重启可恢复）
+    persistSessionMetadata: (session) => host.persistSessionMetadata(session),
     incToolRound: (sid) => host.incToolRound(sid),
   });
 

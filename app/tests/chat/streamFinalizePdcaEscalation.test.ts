@@ -92,6 +92,8 @@ function makeDeps(capture: { payload?: unknown }): StreamFinalizeDeps {
     flushPendingPersists: async () => {},
     // P2-4①（2026-11-28）：回合收尾折叠投影（桩：本文件不关心投影落盘）
     foldMessageProjection: async () => {},
+    // P2-6（2026-11-28）：渠道绑定落盘桩（本文件不关心）
+    persistSessionMetadata: async () => {},
     incToolRound: () => {},
   } as unknown as StreamFinalizeDeps;
 }

@@ -120,6 +120,14 @@ export interface StreamFinalizeDeps {
    *（同一 messageId 的整行快照折叠为一行）。底层无该能力时为 no-op。
    */
   foldMessageProjection: (sessionId: string) => Promise<void>;
+  /**
+   * P2-6（2026-11-28，台账 L16030①）：把会话内存 metadata 合并持久化。
+   *
+   * 现状缺口：`channelBinding`（渠道绑定）由工具选择阶段写进内存 metadata，但**只有工具轮**
+   * 会在收尾 await 落盘（`streamMessageToolLoop`）⇒ 纯问答轮来自渠道时，绑定永不落盘，
+   * 重启后 Inbox 提交取不到 `channel_id`/`channel_session_id`/`trace_id`。
+   */
+  persistSessionMetadata: (session: ChatSession) => Promise<void>;
   /** per-session turn 计数递增 */
   incToolRound: (sessionId: string) => void;
 }
@@ -392,6 +400,20 @@ export class ChatStreamFinalize {
 
     // P4-fix: 等待所有未完成的持久化完成后再返回（WAP 规范）
     await deps.flushPendingPersists();
+
+    // P2-6（2026-11-28，台账 L16030①）：渠道绑定只写在内存 metadata，而**只有工具轮**会在
+    // 收尾落盘（`streamMessageToolLoop`）⇒ 纯问答轮来自渠道时绑定永不落盘、重启即丢。
+    // 这里在统一收尾点补一次（仅当确有绑定，普通会话零额外 IO）。
+    if (session.metadata?.['channelBinding']) {
+      try {
+        await deps.persistSessionMetadata(session);
+      } catch (err) {
+        logger.warn('渠道绑定持久化失败（继续收尾）', {
+          sessionId: session.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
 
     // P2-4①（2026-11-28，真机 `session_mwz477wj251057474e`）：回合收尾折叠投影重复快照 ——
     // 实测同一条助手消息在单轮内被整行追加 42 份（≈630 KB，会话投影 2.83 MB / 328 行），

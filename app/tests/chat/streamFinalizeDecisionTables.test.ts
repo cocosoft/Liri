@@ -98,6 +98,8 @@ function makeDeps(
     flushPendingPersists: async () => {},
     // P2-4①（2026-11-28）：回合收尾折叠投影（桩：本文件不关心投影落盘）
     foldMessageProjection: async () => {},
+    // P2-6：渠道绑定落盘桩（需要断言的用例经 overrides 捕获）
+    persistSessionMetadata: async () => {},
     incToolRound: () => {},
     ...overrides,
   } as unknown as StreamFinalizeDeps;
@@ -338,5 +340,55 @@ describe('工具活动轮次的 turn/end 补写（外移自 finalize）', () => 
     expect(capture.machineReasons.some((r) => r.startsWith('finish:'))).toBe(
       false
     );
+  });
+});
+
+/**
+ * P2-6（2026-11-28，台账 L16030①）：**渠道绑定要跨重启可恢复**。
+ *
+ * 缺口：`channelBinding` 由工具选择阶段写进会话内存 metadata，但只有**工具轮**会在收尾
+ * await 落盘（`streamMessageToolLoop`）⇒ 纯问答轮来自渠道时绑定永不落盘，重启后 Inbox
+ * 提交取不到 `channel_id`/`channel_session_id`/`trace_id`。
+ * 口径：统一收尾点仅在**确有绑定**时补一次 persist（普通会话零额外 IO）。
+ */
+describe('P2-6：渠道绑定在回合收尾落盘', () => {
+  it('会话带 channelBinding ⇒ 收尾 persistSessionMetadata 被调用', async () => {
+    const persisted: string[] = [];
+    const capture: Capture = { events: [], machineReasons: [] };
+    await runFinalize({
+      session: makeSession(
+        ['你好'],
+        {
+          channelBinding: {
+            channelId: 'qq',
+            channelSessionId: 'ch_1',
+            traceId: 'tr_1',
+          },
+        },
+        'sess-binding'
+      ),
+      assistant: makeAssistant('你好'),
+      deps: makeDeps(capture, {
+        persistSessionMetadata: async (s: ChatSession) => {
+          persisted.push(s.id);
+        },
+      }),
+    });
+    expect(persisted).toEqual(['sess-binding']);
+  });
+
+  it('普通会话（无绑定）⇒ 不额外落盘', async () => {
+    const persisted: string[] = [];
+    const capture: Capture = { events: [], machineReasons: [] };
+    await runFinalize({
+      session: makeSession(['你好'], {}, 'sess-plain'),
+      assistant: makeAssistant('你好'),
+      deps: makeDeps(capture, {
+        persistSessionMetadata: async (s: ChatSession) => {
+          persisted.push(s.id);
+        },
+      }),
+    });
+    expect(persisted).toEqual([]);
   });
 });

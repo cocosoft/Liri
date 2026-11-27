@@ -217,10 +217,18 @@ SG-1 把 REPL / notebook 执行面接进 Low IL 后，真机冒烟暴露并修�
    `cleanupStaleWindowsBashGrants` 对旧台账里的 High/System 条目改恢复为 **Medium** 并留 WARN。
 3. **`.cmd/.bat` 无法被 helper 直接 `CreateProcess`**（`npx` 即此形态）：REPL 的 `typescript` 语言此前只能降级。
    修复：`replSandboxSpawn` 用 `where.exe` 解析出 `.cmd/.bat` 后，经 `cmd.exe /d /s /c` +
-   **环境变量转交**命令文本（复用 `buildWindowsBashInvocation`，变量名 `LIRI_REPL_CMD`）；
-   参数含双引号时如实降级（cmd 命令行无法安全表达）。
+   **环境变量转交**命令文本（复用 `buildWindowsBashInvocation`，变量名 `LIRI_REPL_CMD`）。
+   **参数一律按 MSVCRT（`CommandLineToArgvW`）规则加引号**（`quoteWindowsCommandLineArg`）：
+   含空格/引号的值可保真（`x"y` ⇒ `"x\"y"`，结尾反斜杠 `C:\dir\` ⇒ `"C:\dir\\"`），
+   且 `& | < > ^` 因落在引号内成为字面量。仅 `%`（cmd 会在引号内也做变量展开）与 **换行**
+   （会截断命令文本）仍如实降级（`windows-cmd-unsafe-args`）。
+   真机实测（cmd → 批处理 `%*` → node）：`"x\"y"` 与 `"x""y"` 都能让 node 拿到 `x"y`，`^"` 会丢引号
+   ⇒ 取 CRT 规则（与 `spawn(..., windowsVerbatimArguments:false)` 同语义）。
 
 真机冒烟（本机）：`mode=windows-low-il`，`args=… -- C:\Windows\system32\cmd.exe /d /s /c %LIRI_REPL_CMD%`，
 `LIRI_REPL_CMD="…\probe.cmd"`，`exit=0 stdout=SMOKE_OK`，授权/恢复全部成功、台账归零。
+**含引号参数冒烟（2026-11-27 补）**：`args=[a b, x"y, C:\dir\]` ⇒
+`LIRI_REPL_CMD="…\probe.cmd" "a b" "x\"y" "C:\dir\\"` ⇒ 批处理 `%*` 转交 node，
+`node-argv=["a b","x\"y","C:\\dir\\"]`、`exit=0`（逐字保真）。
 
 `verify-win-sandbox.ts` 的失败分支现已内置**只读诊断**（读上述注册表键与策略目录），把"为什么不可用"直接打在输出里。

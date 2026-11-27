@@ -237,24 +237,75 @@ function defaultResolveWinProgram(command: string): WinResolvedProgram | null {
 export const REPL_WINDOWS_CMD_ENV = 'LIRI_REPL_CMD';
 
 /**
+ * 按 **MSVCRT（`CommandLineToArgvW`）规则**引用一个参数（纯函数）。
+ *
+ * 典型：`x"y` ⇒ `"x\"y"`；`C:\dir\` ⇒ `"C:\dir\\"`（结尾反斜杠要双写，否则会"吃掉"闭合引号）。
+ *
+ * ⚠️ 为什么用 CRT 规则而不是批处理的 `""` 双写：两者的**最终消费者**是目标程序（如
+ * `npx.cmd` 会把 `%*` 原样转交给 `node`），CRT 规则在整条链上都成立。真机实测（本机 cmd →
+ * 批处理 `%*` → node）：`"x\"y"` **与** `"x""y"` 都能让 node 拿到 `x"y`，而 `^"` 会丢引号；
+ * 这里取 CRT 规则（与 `spawn(..., windowsVerbatimArguments:false)` 的语义一致）。
+ */
+export function quoteWindowsCommandLineArg(arg: string): string {
+  if (arg === '') return '""';
+  let out = '"';
+  let backslashes = 0;
+  for (const ch of arg) {
+    if (ch === '\\') {
+      backslashes += 1;
+      continue;
+    }
+    if (ch === '"') {
+      // 字面引号：前面的反斜杠要翻倍，再补一个转义反斜杠
+      out += '\\'.repeat(backslashes * 2 + 1) + '"';
+      backslashes = 0;
+      continue;
+    }
+    out += '\\'.repeat(backslashes) + ch;
+    backslashes = 0;
+  }
+  return `${out}${'\\'.repeat(backslashes * 2)}"`;
+}
+
+/**
+ * 命令文本里**无法被 cmd 安全表达**的字符（命中 ⇒ 降级，不猜）。
+ *
+ * - `%`：`cmd` 会在引号**内**也做 `%VAR%` 展开（`buildWindowsBashInvocation` 还会走 `call`
+ *   二次展开）⇒ 参数值会被改写甚至泄露环境变量；
+ * - CR/LF：会截断命令文本（等价于注入一条新命令）。
+ *
+ * 注意 `& | < > ^` **不在**此列：它们只要在引号内就是字面量，而本函数对每个参数一律加引号
+ *（见 `quoteWindowsCommandLineArg`）⇒ 已被引号保护。
+ */
+function findUnrepresentableChar(text: string): string | null {
+  if (text.includes('\r')) return '\\r';
+  if (text.includes('\n')) return '\\n';
+  if (text.includes('%')) return '%';
+  return null;
+}
+
+/**
  * `.cmd/.bat` 的 `cmd.exe` 转交形态（复用 bash 已证实的"环境变量转交"实现）。
  *
  * 为什么不能直接把命令文本当 argv：helper 的 `build_command_line` 会把含空格的参数整体加引号、
  * 并把内部 `"` 转义成 `\"`，而 **cmd.exe 不认反斜杠转义**（bash 侧真机实测过）。
  *
- * @returns `null` = 参数里含 `"`（无法在 cmd 命令行里安全表达）⇒ 调用方降级
+ * @returns `null` = 参数含 `%` / 换行（cmd 无法安全表达）⇒ 调用方降级
  */
 function buildCmdTransferInvocation(
   resolved: WinResolvedProgram,
   args: string[],
   env: NodeJS.ProcessEnv
 ): { program: string; args: string[]; env: Record<string, string> } | null {
-  // `.cmd` 路径可能含空格（如 `C:\Program Files\nodejs\npx.cmd`）⇒ 统一加引号
-  if (resolved.program.includes('"') || args.some((arg) => arg.includes('"'))) {
-    return null;
-  }
+  const unsafe =
+    findUnrepresentableChar(resolved.program) ??
+    args.map(findUnrepresentableChar).find(Boolean);
+  if (unsafe) return null;
   return buildWindowsBashInvocation({
-    command: [`"${resolved.program}"`, ...args].join(' '),
+    // 每个参数一律按 CRT 规则加引号：既支持含空格/引号的值，也让 `& | < > ^` 落在引号内
+    command: [resolved.program, ...args]
+      .map(quoteWindowsCommandLineArg)
+      .join(' '),
     env,
     envVarName: REPL_WINDOWS_CMD_ENV,
   });
@@ -403,7 +454,7 @@ export async function planReplSandboxSpawn(
         return unavailable(
           input,
           'windows-cmd-unsafe-args',
-          `命令 ${input.command} 需经 cmd.exe 转交，但参数含双引号（cmd 命令行无法安全表达）`,
+          `命令 ${input.command} 需经 cmd.exe 转交，但程序路径/参数含 % 或换行（cmd 会改写或截断，无法安全表达）`,
           config.failClosed
         );
       }

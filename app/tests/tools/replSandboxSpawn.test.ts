@@ -17,6 +17,7 @@ import { join } from 'node:path';
 import {
   assertReplSandboxPlanUsable,
   planReplSandboxSpawn,
+  quoteWindowsCommandLineArg,
 } from '@openliri/tool-code/repl/replSandboxSpawn';
 import type {
   ReplSandboxPlan,
@@ -55,6 +56,27 @@ function plan(
 ): Promise<ReplSandboxPlan> {
   return planReplSandboxSpawn({ ...PYTHON, cwd, env: { PATH: '/x' }, deps });
 }
+
+describe('quoteWindowsCommandLineArg：MSVCRT 规则', () => {
+  it('普通参数也加引号（让 `& | < > ^` 落在引号内）', () => {
+    expect(quoteWindowsCommandLineArg('-i')).toBe('"-i"');
+    expect(quoteWindowsCommandLineArg('a&b')).toBe('"a&b"');
+  });
+
+  it('含空格 / 空串', () => {
+    expect(quoteWindowsCommandLineArg('a b')).toBe('"a b"');
+    expect(quoteWindowsCommandLineArg('')).toBe('""');
+  });
+
+  it('字面引号 ⇒ `\\"`（前置反斜杠按 2n+1 翻倍）', () => {
+    expect(quoteWindowsCommandLineArg('x"y')).toBe('"x\\"y"');
+    expect(quoteWindowsCommandLineArg('x\\"y')).toBe('"x\\\\\\"y"');
+  });
+
+  it('结尾反斜杠翻倍（否则会吃掉闭合引号）', () => {
+    expect(quoteWindowsCommandLineArg('C:\\dir\\')).toBe('"C:\\dir\\\\"');
+  });
+});
 
 describe('planReplSandboxSpawn：总开关', () => {
   it('sandbox.landlock.enabled=false ⇒ 不隔离（原样 spawn）', async () => {
@@ -335,16 +357,17 @@ describe('planReplSandboxSpawn：Windows Low IL', () => {
       '/c',
       '%LIRI_REPL_CMD%',
     ]);
-    // 真正的命令文本走环境变量（UTF-16 环境块，避开 cmd 不认 `\"` 的问题）
+    // 真正的命令文本走环境变量（UTF-16 环境块，避开 cmd 不认 `\"` 的问题）；
+    // 每个参数一律按 CRT 规则加引号（`& | < > ^` 因此落在引号内）
     expect(p.env.LIRI_REPL_CMD).toBe(
-      '"C:/Program Files/nodejs/npx.cmd" ts-node -i'
+      '"C:/Program Files/nodejs/npx.cmd" "ts-node" "-i"'
     );
   });
 
-  it('`.cmd` 且参数含双引号 ⇒ 降级（cmd 命令行无法安全表达）', async () => {
+  it('`.cmd` 且参数含双引号 ⇒ 按 CRT 规则转义，仍然进沙箱（不降级）', async () => {
     const p = await planReplSandboxSpawn({
       command: 'npx',
-      args: ['x"y'],
+      args: ['x"y', 'C:\\dir\\'],
       cwd: process.cwd(),
       env: { PATH: '/x' },
       deps: baseDeps({
@@ -358,9 +381,35 @@ describe('planReplSandboxSpawn：Windows Low IL', () => {
         }),
       }),
     });
-    // 未授权前就拒绝转交 ⇒ 不会去改 ACL
-    expect(p.mode).toBe('none');
-    expect(p.reason).toBe('windows-cmd-unsafe-args');
+    expect(p.mode).toBe('windows-low-il');
+    // 字面引号 ⇒ `\"`；结尾反斜杠 ⇒ 双写（否则会吃掉闭合引号）
+    expect(p.env.LIRI_REPL_CMD).toBe('"C:/x/run.cmd" "x\\"y" "C:\\dir\\\\"');
+  });
+
+  it('`.cmd` 且参数含 `%` / 换行 ⇒ 降级（cmd 会改写或截断）', async () => {
+    const planFor = (arg: string) =>
+      planReplSandboxSpawn({
+        command: 'npx',
+        args: [arg],
+        cwd: process.cwd(),
+        env: { PATH: '/x' },
+        deps: baseDeps({
+          platform: 'win32',
+          detectWin: () => ({ available: true, runnable: true }),
+          resolveWinProgram: () => ({ program: 'C:/x/run.cmd', viaCmd: true }),
+          beginWinGrants: async () => ({
+            ok: true,
+            failures: [],
+            release: async () => {},
+          }),
+        }),
+      });
+    for (const arg of ['--fmt=%s', 'a\nb']) {
+      const p = await planFor(arg);
+      // 未授权前就拒绝转交 ⇒ 不会去改 ACL
+      expect(p.mode).toBe('none');
+      expect(p.reason).toBe('windows-cmd-unsafe-args');
+    }
   });
 
   it('helper 的 --probe 未通过（runnable=false）⇒ 与缺失同口径', async () => {

@@ -536,6 +536,17 @@ async function revokeLabel(
   return true;
 }
 
+/** 从台账剪除"目录已消失"的条目（只删这些键，其余原样保留） */
+function pruneVanishedGrantEntries(journalPath: string, dirs: string[]): void {
+  if (dirs.length === 0) return;
+  const gone = new Set(dirs.map((dir) => grantKey(dir)));
+  const journal = readIntegrityJournal(journalPath);
+  writeIntegrityJournal(journalPath, {
+    ...journal,
+    entries: journal.entries.filter((entry) => !gone.has(grantKey(entry.dir))),
+  });
+}
+
 /** 释放一组目录：引用计数归零时恢复原标签 */
 async function releaseGrants(
   dirs: string[],
@@ -681,7 +692,9 @@ export interface StaleGrantCleanupResult {
  *  ① 先把还在 Low 的目录标签恢复（`finally` 没跑到：崩溃 / 强杀 / 断电）；
  *  ② 再撤掉为改标签而临时补的 `WRITE_OWNER` ACE（进程内缓存，见 `IntegrityJournal`）。
  *
- * 恢复/撤销失败的条目**保留在台账里**（下次启动重试），不静默丢弃。
+ * 恢复/撤销失败的条目**保留在台账里**（下次启动重试），不静默丢弃；
+ * 但**目录已消失**的条目直接剪除（2026-11-27 真机：临时工作区被删 ⇒ 条目永久残留，
+ * 每次启动重复读、且"台账归零"巡检恒为假）。
  */
 export async function cleanupStaleWindowsBashGrants(
   deps: WindowsBashGrantDeps & { platform?: NodeJS.Platform } = {}
@@ -701,8 +714,14 @@ export async function cleanupStaleWindowsBashGrants(
 
   const restored: string[] = [];
   const failures: WindowsBashGrantFailure[] = [];
+  const vanished: string[] = [];
   for (const entry of journal.entries) {
-    if (!pathExists(entry.dir)) continue;
+    if (!pathExists(entry.dir)) {
+      // 目录已不存在 ⇒ 没有可恢复的对象（临时工作区被删 / 用户清理）：条目剪除，不再重试
+      vanished.push(entry.dir);
+      logger.info('bash: windows-revoke-missing-dir', { dir: entry.dir });
+      continue;
+    }
     // 2026-11-27：旧台账可能记录了"降级后无法恢复"的 High/System（提升需 SeRelabelPrivilege）。
     // 这类条目重试必然失败 ⇒ 改为恢复到 Medium（用户数据的常态级别；比留在 Low 更安全），并留 WARN。
     const restoreLevel: IntegrityLevel =
@@ -731,11 +750,18 @@ export async function cleanupStaleWindowsBashGrants(
     }
   }
 
+  // 目录已消失的条目剪除（失败条目仍保留；剪除只动这些键）
+  pruneVanishedGrantEntries(journalPath, vanished);
+
   // ② 撤掉临时 WRITE_OWNER（标签已不在 Low 上，顺序不能反）
   if (!sid) return { restored, failures };
   const remainingAce: string[] = [];
   for (const dir of readIntegrityJournal(journalPath).writeOwners) {
-    if (!pathExists(dir)) continue;
+    if (!pathExists(dir)) {
+      // 同上：目录已消失 ⇒ 无从撤销，随本次写回剪除
+      logger.info('bash: windows-revoke-wo-missing-dir', { dir });
+      continue;
+    }
     const removed = await run(buildRemoveWriteOwnerArgs(dir, sid));
     if (removed.ok) {
       logger.info('bash: windows-revoke-write-owner', { dir });

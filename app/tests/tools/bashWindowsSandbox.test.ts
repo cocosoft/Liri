@@ -438,6 +438,34 @@ describe('§10 崩溃兜底：启动清理', () => {
     expect(icacls.writeOwner.has('E:\\repo')).toBe(false);
     expect(readIntegrityJournal(journal).writeOwners).toEqual([]);
   });
+
+  // 2026-11-27 真机：临时工作区被删后，台账条目永久残留（每次启动重复读、"台账归零"巡检恒假）
+  it('目录已消失 ⇒ 剪除台账条目（无对象可恢复，且不对它跑 icacls）', async () => {
+    const journal = tempJournal();
+    writeFileSync(
+      journal,
+      JSON.stringify({
+        version: 2,
+        entries: [{ dir: 'C:\\gone', restoreLevel: 'Medium' }],
+        writeOwners: ['C:\\gone'],
+      }),
+      'utf8'
+    );
+    const icacls = fakeIcacls();
+
+    const result = await cleanupStaleWindowsBashGrants({
+      platform: 'win32',
+      runIcacls: icacls.run,
+      journalPath: journal,
+      pathExists: () => false,
+      resolveUserSid,
+    });
+
+    expect(result).toEqual({ restored: [], failures: [] });
+    expect(icacls.calls).toEqual([]);
+    expect(readGrantJournal(journal)).toEqual([]);
+    expect(readIntegrityJournal(journal).writeOwners).toEqual([]);
+  });
 });
 
 describe('§10 命令转交（环境变量 + cmd.exe）', () => {

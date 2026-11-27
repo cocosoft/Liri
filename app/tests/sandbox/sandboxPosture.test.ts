@@ -103,6 +103,13 @@ describe('describeSandboxPosture（#7 沙箱姿态可读化）', () => {
     expect(typeof posture.landlock.failClosed).toBe('boolean');
     expect(typeof posture.landlock.available).toBe('boolean');
     expect(typeof posture.shellWriteIsolated).toBe('boolean');
+    // 2026-11-27（A 组）：写隔离后端名（none ⇔ 未生效），供状态页如实展示
+    expect(['landlock', 'sandbox-exec', 'windows-low-il', 'none']).toContain(
+      posture.shellWriteIsolation
+    );
+    expect(posture.shellWriteIsolation === 'none').toBe(
+      posture.shellWriteIsolated === false
+    );
     expect(Array.isArray(posture.openRisks)).toBe(true);
     expect(posture.openRiskCodes).toHaveLength(posture.openRisks.length);
     // 可 JSON 序列化（启动日志会原样落盘）

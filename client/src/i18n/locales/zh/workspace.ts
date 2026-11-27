@@ -160,6 +160,8 @@ const zhWorkspace = {
       "命令执行（bash / powershell）：非只读命令强制在平台写隔离内执行（越界写被拒绝；Windows = Low IL，macOS = Seatbelt，Linux = Landlock）；写隔离生效时不再弹审批卡，删除/提权类命令仍需确认；读与网络不受限",
     postureBashUnavailable:
       "命令执行（bash / powershell）：本机写隔离未生效（平台能力未就绪或沙箱总开关关闭）⇒ 非只读命令降级为普通执行，并保留审批卡",
+    // 2026-11-27（A 组）：如实说明"靠哪个后端隔离"（后端名由后端给出，前端只做可读化）
+    postureWriteIsolationBackend: "写隔离后端：{{backend}}",
     postureGuardOn: "解释器命令二次确认（BASH_INTERPRETER_GUARD）：已开启",
     postureGuardOff: "解释器命令二次确认（BASH_INTERPRETER_GUARD）：未开启",
     // P2-c（2026-11-07）：权限档 ≠ 沙箱 —— 前者管「要不要问」，后者管「跑起来能碰什么」

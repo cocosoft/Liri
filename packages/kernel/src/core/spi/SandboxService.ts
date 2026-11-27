@@ -90,12 +90,30 @@ export interface SandboxRuntimeStatus {
   posture?: {
     mode: string;
     permissionLevel: string;
+    /**
+     * P2（2026-11-07）：bash 的隔离状态原因
+     *（`enforced` / `windows-enforced` / `switch-off` / `windows-switch-off`）。
+     * 2026-11-27 补齐：该字段此前已在实现里返回、本契约漏登记。
+     */
+    bashSandboxReason?: string;
     landlock: {
       enabled: boolean;
       bashEnabled: boolean;
       failClosed: boolean;
       available: boolean;
     };
+    /**
+     * 2026-11-26：命令工具的**写隔离是否真的生效**（总开关 + 平台能力）。
+     * 2026-11-27 补齐：该字段此前已在实现里返回、本契约漏登记。
+     */
+    shellWriteIsolated?: boolean;
+    /**
+     * 2026-11-27（A 组）：写隔离的**具体后端**
+     *（`landlock` / `sandbox-exec` / `windows-low-il` / `none`）。
+     *
+     * 只用于**展示**：沙箱豁免（S1）仍只看 `mode`，本字段不参与任何裁决。
+     */
+    shellWriteIsolation?: string;
     openRiskCodes: string[];
     /** A5-①：解释器命令需人工确认（`BASH_INTERPRETER_GUARD`，默认关） */
     bashInterpreterGuard?: boolean;

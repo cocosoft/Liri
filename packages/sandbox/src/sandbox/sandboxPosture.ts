@@ -20,7 +20,8 @@ import type {
 import { readLandlockConfig } from './landlock/config';
 import { LandlockDetector } from './landlock/LandlockDetector';
 import { resolveSandboxExecutionSignal } from './sandboxExecutionSignal';
-import { isShellWriteIsolationEffective } from './shellWriteIsolation';
+import { resolveShellWriteIsolationBackend } from './shellWriteIsolation';
+import type { ShellWriteIsolationBackend } from './shellWriteIsolation';
 
 /**
  * fail-open 风险的**语言中立编码**（A5-①，2026-11-05）。
@@ -73,6 +74,13 @@ export interface SandboxPosture {
    * 非只读命令降级普通执行（保留审批卡）。
    */
   shellWriteIsolated: boolean;
+  /**
+   * 2026-11-27（A 组）：写隔离的**具体后端**（`none` = 未生效）。
+   *
+   * 与 `shellWriteIsolated` 同源：`none` ⇔ `false`。供状态页/日志如实说明
+   * "靠 Landlock / Seatbelt / Low IL 隔离"，而不是把 macOS/Windows 显示成"没隔离"。
+   */
+  shellWriteIsolation: ShellWriteIsolationBackend;
   /** 当前姿态下**实际存在**的 fail-open 风险（人类可读；空数组 = 无） */
   openRisks: string[];
   /** 同上的语言中立编码（前端 i18n 用；与 `openRisks` 一一对应） */
@@ -87,6 +95,8 @@ export interface DescribeSandboxPostureOverrides {
   platform?: NodeJS.Platform;
   /** 仅供单测注入（缺省读 `isShellWriteIsolationEffective()`） */
   shellWriteIsolated?: boolean;
+  /** 仅供单测注入（缺省读 `resolveShellWriteIsolationBackend()`） */
+  shellWriteIsolation?: ShellWriteIsolationBackend;
 }
 
 /**
@@ -121,9 +131,17 @@ export function describeSandboxPosture(
       ? 'windows-switch-off'
       : 'switch-off';
 
+  /**
+   * 2026-11-27（A 组）：写隔离的**后端名**（`none` ⇔ 未生效）。
+   *
+   * 与布尔值同源（一次判定），让状态页/日志能说清"是 Landlock 还是 Seatbelt 还是 Low IL"
+   *（此前 macOS/Windows 的写隔离在状态页里一律看起来像"没隔离"）。
+   */
+  const shellWriteState = resolveShellWriteIsolationBackend({ platform });
   const shellWriteIsolated =
-    overrides.shellWriteIsolated ??
-    isShellWriteIsolationEffective({ platform });
+    overrides.shellWriteIsolated ?? shellWriteState.effective;
+  const shellWriteIsolation =
+    overrides.shellWriteIsolation ?? shellWriteState.backend;
 
   const openRisks: string[] = [];
   const openRiskCodes: SandboxRiskCode[] = [];
@@ -152,6 +170,7 @@ export function describeSandboxPosture(
     bashSandboxReason,
     landlock,
     shellWriteIsolated,
+    shellWriteIsolation,
     openRisks,
     openRiskCodes,
   };

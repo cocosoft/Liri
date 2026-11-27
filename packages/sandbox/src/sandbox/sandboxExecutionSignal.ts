@@ -28,7 +28,11 @@ import type {
 import { readLandlockConfig } from './landlock/config';
 import { LandlockDetector } from './landlock/LandlockDetector';
 import { readSandboxPermissionLevel } from './permissionLevel';
-import { isShellWriteIsolationEffective } from './shellWriteIsolation';
+import {
+  resolveShellWriteIsolationBackend,
+  shellWriteIsolationBackendForPlatform,
+} from './shellWriteIsolation';
+import type { ShellWriteIsolationBackend } from './shellWriteIsolation';
 import {
   hasIsolatedFileIo,
   resolveFileIoExecutionMode,
@@ -82,8 +86,13 @@ export interface ResolveSandboxSignalParams {
   /**
    * 覆盖**命令写隔离证据**（缺省读 `isShellWriteIsolationEffective()`）；
    * 供单测注入，避免依赖真实平台能力探测。
+   *
+   * 2026-11-27：新增 `shellWriteIsolation`（**后端名**）——二者同时提供时以后端名为准，
+   * 布尔值由它派生（`none` ⇔ false），避免两份判据漂移。
    */
   shellWriteIsolated?: boolean;
+  /** 覆盖命令写隔离的**后端名**（缺省按平台能力探测；供单测注入） */
+  shellWriteIsolation?: ShellWriteIsolationBackend;
 }
 
 /**
@@ -116,15 +125,22 @@ export function resolveSandboxExecutionSignal(
     params.fileIoRoots ??
     resolveWorkspacePathMaps().map((mount) => mount.hostRoot);
   // 2026-11-26：命令写隔离证据（平台能力 + 总开关），与执行门控同源
-  const shellWriteIsolated =
-    enabled &&
-    (params.shellWriteIsolated ??
-      isShellWriteIsolationEffective({
-        ...(params.platform ? { platform: params.platform } : {}),
-        ...(params.landlockAvailable !== undefined
-          ? { landlockAvailable: params.landlockAvailable }
-          : {}),
-      }));
+  const platform = params.platform ?? process.platform;
+  // 命令写隔离：后端名是**唯一事实**，布尔值由它派生（2026-11-27）
+  const shellWriteIsolation: ShellWriteIsolationBackend = !enabled
+    ? 'none'
+    : (params.shellWriteIsolation ??
+      (params.shellWriteIsolated === undefined
+        ? resolveShellWriteIsolationBackend({
+            platform,
+            ...(params.landlockAvailable !== undefined
+              ? { landlockAvailable: params.landlockAvailable }
+              : {}),
+          }).backend
+        : params.shellWriteIsolated
+          ? shellWriteIsolationBackendForPlatform(platform)
+          : 'none'));
+  const shellWriteIsolated = shellWriteIsolation !== 'none';
   if (!enabled)
     return {
       mode: 'none',
@@ -132,6 +148,7 @@ export function resolveSandboxExecutionSignal(
       fileIoIsolated,
       fileIoRoots,
       shellWriteIsolated,
+      shellWriteIsolation,
     };
   if (params.modeHint)
     return {
@@ -140,11 +157,11 @@ export function resolveSandboxExecutionSignal(
       fileIoIsolated,
       fileIoRoots,
       shellWriteIsolated,
+      shellWriteIsolation,
     };
 
   const landlockEnabled =
     params.landlockEnabled ?? readLandlockConfig().enabled;
-  const platform = params.platform ?? process.platform;
   const available = params.landlockAvailable ?? hasLandlockEvidence();
   const mode: SandboxExecutionMode =
     landlockEnabled && platform === 'linux' && available ? 'landlock' : 'none';
@@ -154,6 +171,7 @@ export function resolveSandboxExecutionSignal(
     fileIoIsolated,
     fileIoRoots,
     shellWriteIsolated,
+    shellWriteIsolation,
   };
 }
 

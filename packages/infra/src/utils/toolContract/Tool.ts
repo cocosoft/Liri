@@ -153,6 +153,15 @@ export interface SandboxExecutionSignal {
    * ⚠️ 它**不**覆盖读与网络（这两项不受写隔离约束）。
    */
   shellWriteIsolated?: boolean;
+  /**
+   * 2026-11-27：命令写隔离的**具体后端**（`none` = 未生效），与 `shellWriteIsolated` 同源
+   * （布尔值由它派生）。用于状态面/日志**如实说明"靠什么隔离"**。
+   *
+   * ⚠️ **不参与裁决**：沙箱豁免（S1）只认 `mode`（`isSandboxSignalUsable` 要求非 `none`），
+   * 因此把 macOS/Windows 的"仅写隔离"标成这里的非 `none` **不会**放宽任何审批。
+   * 取值域与 `@modules/sandbox` 的 `ShellWriteIsolationBackend` 逐字一致。
+   */
+  shellWriteIsolation?: 'landlock' | 'sandbox-exec' | 'windows-low-il' | 'none';
 }
 
 /**

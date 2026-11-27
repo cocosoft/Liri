@@ -48,6 +48,12 @@ export interface SandboxStatus {
      * 2026-11-26：命令工具的写隔离是否真的生效（非只读命令强制进沙箱；生效时不再弹审批卡）。
      */
     shellWriteIsolated?: boolean;
+    /**
+     * 2026-11-27（A 组）：写隔离的**具体后端**（`none` = 未生效）。
+     * 只用于展示（Landlock / Seatbelt / Low IL）；不参与任何权限裁决。
+     */
+    shellWriteIsolation?:
+      "landlock" | "sandbox-exec" | "windows-low-il" | "none";
     openRiskCodes: string[];
     bashInterpreterGuard?: boolean;
   } | null;

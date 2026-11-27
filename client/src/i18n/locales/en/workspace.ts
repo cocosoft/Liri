@@ -168,6 +168,8 @@ const enWorkspace = {
       "Command execution (bash / powershell): every non-read-only command runs inside the platform write sandbox (out-of-bound writes are denied; Windows = Low IL, macOS = Seatbelt, Linux = Landlock); when it is effective no approval card is shown, while delete/elevate commands still require confirmation; reads and network stay unrestricted",
     postureBashUnavailable:
       "Command execution (bash / powershell): write isolation is not effective on this machine (platform capability unavailable or the sandbox master switch is off) ⇒ non-read-only commands fall back to plain execution and keep the approval card",
+    // 2026-11-27 (group A): state which backend actually enforces write isolation
+    postureWriteIsolationBackend: "Write isolation backend: {{backend}}",
     postureGuardOn: "Interpreter confirmation (BASH_INTERPRETER_GUARD): on",
     postureGuardOff: "Interpreter confirmation (BASH_INTERPRETER_GUARD): off",
     // P2-c (2026-11-07): permission tier vs sandbox — "ask or not" vs "what it may touch"
@@ -1311,7 +1313,8 @@ const enWorkspace = {
     profileSave: "Save",
     profileSaving: "Saving…",
     profileCancel: "Cancel",
-    profileSaveFailed: "Save failed: check name/personality length or companion type",
+    profileSaveFailed:
+      "Save failed: check name/personality length or companion type",
     attributes: "Stats",
     dreamIntegration: "🌙 Dream Integration",
     completedIntegrations: "Integrations Completed",

@@ -42,6 +42,10 @@ export interface SandboxPostureSnapshot {
     failClosed: boolean;
     available: boolean;
   };
+  /** 2026-11-27（A 组）：命令写隔离是否生效（与后端名同源：`none` ⇔ false） */
+  shellWriteIsolated: boolean;
+  /** 2026-11-27（A 组）：写隔离后端（`landlock` / `sandbox-exec` / `windows-low-il` / `none`） */
+  shellWriteIsolation: string;
   /** fail-open 风险的语言中立编码（围栏规则 S4 消费） */
   openRiskCodes: string[];
   /** 同上的人类可读说明（仅供取证展示） */
@@ -94,6 +98,9 @@ export function buildSandboxPostureSnapshot(
       failClosed: posture.landlock.failClosed,
       available: posture.landlock.available,
     },
+    // 2026-11-27（A 组）：围栏也能看到"靠哪个后端隔离"（此前 macOS/Windows 一律像"没隔离"）
+    shellWriteIsolated: posture.shellWriteIsolated,
+    shellWriteIsolation: posture.shellWriteIsolation,
     openRiskCodes: [...posture.openRiskCodes],
     openRisks: [...posture.openRisks],
     violationCount: violations.length,

@@ -103,6 +103,15 @@ function SandboxPage() {
    * 不在前端自行推断，避免与真实判定漂移。
    */
   const posture = status?.posture ?? null;
+  /**
+   * 2026-11-27（A 组）：写隔离后端的人类可读名（后端是语言中立代码值，展示层负责可读化）。
+   * 不在前端推断"有没有隔离"，只翻译后端名。
+   */
+  const backendLabel: Record<string, string> = {
+    landlock: "Landlock",
+    "sandbox-exec": "Seatbelt (sandbox-exec)",
+    "windows-low-il": "Low IL (Windows)",
+  };
   const postureLines = posture
     ? [
         posture.mode === "none"
@@ -116,6 +125,17 @@ function SandboxPage() {
         posture.shellWriteIsolated
           ? t("sandbox.postureBashRequiredOnly")
           : t("sandbox.postureBashUnavailable"),
+        // 2026-11-27（A 组）：如实说明"靠哪个后端隔离"（macOS/Windows 此前看起来像"没隔离"）
+        ...(posture.shellWriteIsolation &&
+        posture.shellWriteIsolation !== "none"
+          ? [
+              t("sandbox.postureWriteIsolationBackend", {
+                backend:
+                  backendLabel[posture.shellWriteIsolation] ??
+                  posture.shellWriteIsolation,
+              }),
+            ]
+          : []),
         posture.bashInterpreterGuard
           ? t("sandbox.postureGuardOn")
           : t("sandbox.postureGuardOff"),

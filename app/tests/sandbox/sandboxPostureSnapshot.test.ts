@@ -60,6 +60,8 @@ function source(
       permissionLevel: 'standard',
       bashSandboxReason: 'switch-off',
       shellWriteIsolated: false,
+      // 2026-11-27（A 组）：写隔离后端名（none ⇔ 未生效）
+      shellWriteIsolation: 'none',
       landlock: {
         enabled: false,
         bashEnabled: false,

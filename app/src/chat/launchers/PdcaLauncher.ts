@@ -200,6 +200,21 @@ export function formatPdcaTerminalNotice(input: {
 }
 
 /**
+ * P2-3（2026-11-28）：计划**终态**投影成的 `terminationReason`（供
+ * `resolveSessionStateAfterMessage` 决定会话状态：`completed` ⇒ active、`error` ⇒ error）。
+ *
+ * 未终态 ⇒ `undefined`（中间进度不得改动会话状态）。
+ * 纯函数，便于单测（`app/tests/tasks/pdcaTerminalStatus.test.ts`）。
+ */
+export function planTerminalReason(input: {
+  isDone: boolean;
+  failed: number;
+}): 'error' | 'completed' | undefined {
+  if (!input.isDone) return undefined;
+  return input.failed > 0 ? 'error' : 'completed';
+}
+
+/**
  * PDL 终态的 checkpoint 补丁（自 `launch()` 原样外移，P3-2，2026-11-17）。
  *
  * 相位 / 状态 / 三个时间戳的映射判定顺序与内联版一致：
@@ -453,6 +468,13 @@ export class PdcaLauncher {
         const summary = isDone
           ? `PDCA 执行完成：${progress.completed}/${total} 步${failedNote}`
           : `⚠️ PDCA 未完全达成：${progress.completed}/${total} 步达成${failedNote}${skippedNote}（进度 ${pct}%）${gatedNote}`;
+        // P2-3（2026-11-28，真机 `session_mwz477wj251057474e`）：计划终态按结果回写会话状态 ——
+        // 否则上一轮熔断留下的 `error` 徽标会永久挂住（该轮 PDCA 3/3 完成，会话仍显示 error）。
+        // 中间进度（未终态）返回 undefined ⇒ 不带该字段 ⇒ 不改状态。
+        const terminalReason = planTerminalReason({
+          isDone,
+          failed: progress.failed,
+        });
         this.deps.persistMessage(
           sessionId,
           this.deps.messageService.createAssistantMessage(
@@ -463,6 +485,9 @@ export class PdcaLauncher {
                 taskId,
                 isTaskMessage: true,
                 taskType: 'pdca-progress',
+                ...(terminalReason
+                  ? { terminationReason: terminalReason }
+                  : {}),
               },
             }
           )

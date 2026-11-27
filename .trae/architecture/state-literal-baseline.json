@@ -598,6 +598,7 @@
       "app/src/ai/transports/types.ts",
       "app/src/bootstrap/state.ts",
       "app/src/chat/components/MessageSelector.tsx",
+      "app/src/chat/launchers/PdcaLauncher.ts",
       "app/src/chat/manager/budgetResume.ts",
       "app/src/chat/manager/streamResume.ts",
       "app/src/chat/orchestrator/streamMessageApiMessagesBuild.ts",
@@ -2461,8 +2462,8 @@
       "packages/service/src/execution/ExecutionStore.ts"
     ]
   },
-  "reason": "梦境周期状态新增 skipped（被门槛/节流/锁跳过，不计完成/经验）；DreamCycleStatus 已在 BOUNDARY_STATE_MACHINES 登记为相邻词汇（持久化记录状态，非运行态机）",
-  "generatedAt": "2026-11-25T06:02:49.753Z",
+  "reason": "P2-3：PDCA 终态进度消息回写会话状态（completed/error 为既有词汇的合法新出现点）",
+  "generatedAt": "2026-11-27T17:45:21.291Z",
   "valueOwners": {
     "QUEUED": [
       "execution"

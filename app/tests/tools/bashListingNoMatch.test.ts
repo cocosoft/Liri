@@ -88,6 +88,33 @@ describe('isListingNoMatch：dir 无匹配/空目录', () => {
     ).toBe(false);
   });
 
+  // 2026-11-27（macOS CI 实证）：`dir` 开关只认 `/b` 这类单字符写法。
+  // 原先用 `startsWith('/')` 判开关 ⇒ POSIX 绝对路径（`/var/folders/…`）被当开关跳过，
+  // 探测退化为 cwd（存在）⇒ 「目标目录不存在」被误判成「无匹配」。
+  it('POSIX 绝对路径不被当 `dir` 开关：父目录不存在 ⇒ false', () => {
+    expect(
+      isListingNoMatch({
+        command: 'dir "/definitely/not/exists/*a*" 2>nul',
+        exitCode: 1,
+        stdout: '',
+        stderr: '',
+        cwd: root,
+      })
+    ).toBe(false);
+  });
+
+  it('POSIX 绝对路径 + 父目录存在 ⇒ true（开关跳过不影响真路径）', () => {
+    expect(
+      isListingNoMatch({
+        command: `dir "${join(docsDir, '*nope*')}" 2>nul`,
+        exitCode: 1,
+        stdout: '',
+        stderr: '',
+        cwd: root,
+      })
+    ).toBe(true);
+  });
+
   it('含 `&&` ⇒ false（无法确定哪段失败，可能末段根本没执行）', () => {
     expect(
       isListingNoMatch({

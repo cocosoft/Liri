@@ -119,6 +119,7 @@
 | 安全影响：**无** | `resolveSandboxExemption` 对 `RiskClass.SHELL` 一律 `shell-unprovable`；文件类还必须 `fileIoIsolated===true`（只来自 container/ssh 工作区）⇒ 信号不报 macOS **不会**放宽任何审批 | — |
 | **`/v1/sandbox/status` 不含 macOS 能力字段** | 该端点的读取面是 kernel SPI 端口投影（[spiWiring.ts:509-518](../../app/src/entrypoints/spiWiring.ts#L509-L518)），增加字段要动 kernel 端口契约 + `lint:kernel-api` | 属可观测性增强，不影响运行时行为 |
 | 既有的同类不精确（非本次引入） | Landlock 侧同样按**能力**而非**本次调用**推导：`enabled=true` 但 `bashEnabled=false` 时 bash 实际走 plain，信号仍报 `landlock` | 同一根因；修则两侧一起改（两阶段回填） |
+| **Seatbelt 下 `bun -e` 无法执行**（2026-11-27 CI 实证） | `bashLandlockExec` 报 `exec_error: 未取到退出码`（子进程被沙箱终止）；同一 profile 下 `node --version`、`echo`、写白名单/非白名单断言均正常 ⇒ 疑似 bun 运行时所需的某项能力被 `(deny default)` 拒绝（非写路径问题，profile 已是"读不设限、写白名单"）。影响：macOS 上开启 bash 沙箱后，内联 `bun -e` 类命令**执行失败**（审批层已按"沙箱覆盖"跳过 ask，不会静默放行前缀规则） | 无 macOS 开发机可在本仓验证 profile 增量（`mach-lookup` / `sysctl-read` / `ipc-posix-shm` 等候选），盲改安全面风险高；已在 `app/tests/tools/BashToolApproval.test.ts` 按平台分流锁住"不静默放行"。重开条件：拿到 macOS 真机可复现时，按候选逐项二分出被拒能力并补 profile，同时补 `verify:sandbox-macos` 一条 `bun -e` 断言 |
 
 **触发条件（何时重开）**：需要"按调用证明隔离"的场景成立时（如把 SHELL 类也纳入沙箱豁免、或审计要求逐次留证），
 按"执行入口回填实际 mode → 信号采用回填值"两阶段方案一次性修，并 **同批**扩展 `SandboxExecutionMode`；

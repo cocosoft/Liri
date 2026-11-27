@@ -97,7 +97,11 @@ function parseDirTarget(
     if (!token) continue;
     // 重定向（`2>nul` / `>file`）不是路径参数 ⇒ 目标到此为止
     if (/^\d*>>?/.test(token)) break;
-    if (token.startsWith('/')) continue;
+    // `dir` 的开关只有 `/b` `/s` `/a` `/4` 这类**单字符**写法。
+    // 2026-11-27 修正（macOS CI 实证）：原先用 `startsWith('/')` 判开关，会把 POSIX
+    // 绝对路径（`/var/folders/…`）也当开关跳过 ⇒ 探测退化为 cwd ⇒ 「目标目录不存在」
+    // 被误判成「无匹配」。中文路径不受影响，但运行时误判会掩盖真实失败。
+    if (/^\/[a-z0-9]{1,2}$/i.test(token)) continue;
     raw = token;
     break;
   }

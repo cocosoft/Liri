@@ -29,6 +29,9 @@ describe('buildMacOSSandboxProfile', () => {
     expect(profile).toContain('(deny default)');
     expect(profile).toContain('(allow file-read*)');
     expect(profile).toContain('(allow process*)');
+    // 2026-11-27（CI 逐项二分）：缺 `sysctl-read` ⇒ `bun -e` 被内核终止（exit=null）；
+    // 加上后 exit=0。属只读面放行，不改变写隔离承诺。
+    expect(profile).toContain('(allow sysctl-read)');
     expect(profile).toContain('(subpath "/liri-test/work")');
     expect(profile).toContain('(subpath "/liri-test/tmp")');
     expect(profile).toContain('(allow network*)');

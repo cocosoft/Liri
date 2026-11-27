@@ -99,6 +99,13 @@ export function buildMacOSSandboxProfile(
     '; 读：系统与运行时（动态库 / 证书 / 工具链）',
     '(allow file-read*)',
     '',
+    // 2026-11-27（macOS CI 实证，`.trae/specs/macos-sandbox-exec.md` §3.6）：
+    // `bun -e` 在缺本条时被内核直接终止（`exit=null`，无退出码）；同 profile 加本条后 `exit=0`。
+    // 逐项二分：`mach-lookup` / `ipc-posix-shm` 均无效，**只有 `sysctl-read` 生效**。
+    // 语义：允许读取系统信息（CPU / 内存 / 内核参数）—— 与 `file-read*` 同属**只读面**，
+    // 不改变本 profile 的安全承诺（写隔离：白名单之外仍被拒）。
+    '(allow sysctl-read)',
+    '',
     '; 进程：允许 shell 自身 fork/exec（否则无法启动待执行命令）',
     '(allow process*)',
   ];

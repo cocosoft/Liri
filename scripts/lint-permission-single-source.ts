@@ -334,7 +334,7 @@ function checkDenyBeforeAllowlist(text: string): string[] {
   return violations;
 }
 
-
+// ─── ⑤ 审批可执行性契约（2026-11-24）──────────────────────────────────────────
 //
 // 真机 `session_mwrf18pu00456e0f2b`：`for %f in (...) do @echo ...` 先被 ask 层判"可确认"
 // 并提交审批卡（文案承诺「批准后可继续执行」），用户批准后重放却被硬拦截④（基命令白名单

@@ -214,15 +214,7 @@ const SKIP_REGISTRY: SkipEntry[] = [
     module: 'tools',
     severity: 'env' as SkipSeverity,
   })),
-  // 2026-11-27（C-2）：typescript 离线 e2e 的 2 处条件 skip（需本地 node 起解释器）
-  ...Array.from({ length: 2 }, (_, i) => ({
-    file: 'app/tests/tools/repl.integration.test.ts',
-    match: '!nodeAvailable',
-    reason: `typescript REPL 离线 e2e（第 ${i + 1} 处）—— 需本地 node`,
-    module: 'tools',
-    severity: 'env' as SkipSeverity,
-  })),
-  // 2026-11-27（C-2 补）：真实 ts-node REPL 在管道 stdio 下不执行（见 SG-7 ④ 取证）⇒ 不设用例
+  // 2026-11-27（C-2 收尾）：typescript 语言已移除（ts-node REPL 需 TTY，见 SG-7 ④）⇒ 该文件仅余 6 处 python 位点
 
   // ── 原 `app/src/**`（2026-11-13 query 拆包后已迁入 `app/tests/query/`）──────
   ...Array.from({ length: 10 }, (_, i) => ({

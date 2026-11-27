@@ -299,7 +299,9 @@ export class REPLToolImpl implements REPLTool {
    * 获取支持的语言
    */
   getSupportedLanguages(): string[] {
-    return ['python', 'javascript', 'typescript', 'bash', 'powershell'];
+    // 2026-11-27：移除 `typescript` —— 真机实测 ts-node 的交互式 REPL 在管道 stdio 下
+    // 不执行（见 `resolveReplCommand` 的说明），留一个"起得来但永远无响应"的档位只会误导调用方。
+    return ['python', 'javascript', 'bash', 'powershell'];
   }
 
   /**
@@ -368,9 +370,17 @@ function resolveReplCommand(
       args = ['-i'];
       break;
     case 'typescript':
-      command = 'npx';
-      args = ['ts-node', '-i'];
-      break;
+      // 2026-11-27（真机取证，见治理计划 SG-7 ④）：`npx ts-node -i` 的 REPL 依赖 TTY
+      // （`ts-node/dist/repl.js` 里 `terminal: stdout.isTTY`）⇒ 在**管道 stdio** 下只回显
+      // `> | | ` 而**永不执行**，每次 `executeCode` 只会等满超时。与其留一个假可用档位，
+      // 改为明确拒绝并给出可走的路。
+      throw new AppError(
+        'TypeScript REPL 不可用：ts-node 的交互式 REPL 在管道 stdio 下不执行（已实测）。' +
+          '请改用 language="javascript"（Node REPL），或把 TS 代码写入 .ts 文件后用 bash 运行 `npx ts-node <file>`。',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     case 'bash':
       command = 'bash';
       args = ['-i'];

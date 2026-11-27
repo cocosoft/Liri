@@ -7,9 +7,9 @@
  */
 import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
 import { spawnSync } from 'child_process';
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { delimiter, join } from 'node:path';
+import { join } from 'node:path';
 import { REPLToolImpl } from '@openliri/tool-code/repl/REPLToolImpl';
 import { replSessionManager } from '@openliri/tool-code/repl/REPLSessionManager';
 import type { REPLSession } from '@openliri/tool-code/repl/types/REPLTool';
@@ -150,73 +150,31 @@ describe('REPLToolImpl 真实 spawn（P3-1 完成标记协议）', () => {
 });
 
 /**
- * C-2（2026-11-27）：`typescript` 语言的**离线** e2e。
+ * 2026-11-27（C-2 收尾，真机取证）：`typescript` 语言已**移除**。
  *
- * `typescript` 映射为 `npx ts-node -i`，而 CI 无网络（`npx` 首次要联网装 ts-node）⇒
- * 用一个假的 `npx`（Windows = `npx.cmd`，POSIX = 可执行 shell 脚本）忽略参数、直接起 `node -i`。
- * 因此本组验证的是**typescript 路径的启动链**（`npx` 解析 → `.cmd` 转交 / 沙箱包裹 → 交互与跨执行状态），
- * **不是** ts-node 本身 —— ts-node 的真实行为需联网环境，属 C-2 的如实边界。
+ * 依据：ts-node 的交互式 REPL 依赖 TTY（`ts-node/dist/repl.js`：`terminal: stdout.isTTY`），
+ * 而 REPL 工具是管道 stdio ⇒ `npx ts-node -i` 只回显 `> | | `、**永不执行**（同管道
+ * `node -i` 正常），每次 `executeCode` 只会等满超时。原先的「离线 npx fixture」只验证启动链，
+ * 无法覆盖真实 ts-node；故改为锁住"明确拒绝 + 可操作替代"这一行为。
  */
-const nodeAvailable = (() => {
-  try {
-    return spawnSync('node', ['--version'], { stdio: 'pipe' }).status === 0;
-  } catch {
-    return false;
-  }
-})();
-
-describe('REPLToolImpl：typescript（离线 npx fixture，C-2）', () => {
+describe('REPLToolImpl：typescript 语言已移除（2026-11-27）', () => {
   const tool = new REPLToolImpl();
-  let fixtureDir = '';
-  let originalPath = '';
-  let session: REPLSession | undefined;
 
-  beforeAll(async () => {
-    if (!nodeAvailable) return;
-    fixtureDir = mkdtempSync(join(tmpdir(), 'repl-npx-fixture-'));
-    const isWin = process.platform === 'win32';
-    const shim = join(fixtureDir, isWin ? 'npx.cmd' : 'npx');
-    writeFileSync(
-      shim,
-      isWin ? '@echo off\r\nnode -i\r\n' : '#!/bin/sh\nexec node -i\n',
-      'utf8'
-    );
-    if (!isWin) chmodSync(shim, 0o755);
-    // Windows 的 `where.exe` 解析读的是 `process.env`（不看 options.env）⇒ 必须改全局 PATH；
-    // 非 Windows 只影响子进程 PATH，同样走这里以保持两侧一致。
-    originalPath = process.env.PATH ?? '';
-    process.env.PATH = `${fixtureDir}${delimiter}${originalPath}`;
-    session = await tool.startREPL('typescript', {
-      cwd: fixtureDir,
-      timeout: EXEC_TIMEOUT_MS,
-    });
-  });
-
-  afterAll(async () => {
-    if (session) await tool.stopREPL(session);
+  afterAll(() => {
+    // 失败的 startREPL 会在进程级单例里留下 ERROR 会话 ⇒ 清理，避免影响后续文件
     replSessionManager.clearSessions();
-    if (fixtureDir) rmSync(fixtureDir, { recursive: true, force: true });
-    if (originalPath) process.env.PATH = originalPath;
   });
 
-  test.skipIf(!nodeAvailable)(
-    '启动后可执行（npx → 解释器的转交链通）',
-    async () => {
-      const r = await tool.executeCode(session!, '1+1');
-      expect(r.success).toBe(true);
-      expect(r.output).toContain('2');
-    },
-    15000
-  );
+  test('startREPL("typescript") ⇒ 明确拒绝并指向 javascript / .ts 文件', async () => {
+    await expect(
+      tool.startREPL('typescript', {
+        cwd: process.cwd(),
+        timeout: EXEC_TIMEOUT_MS,
+      })
+    ).rejects.toThrow(/TypeScript REPL 不可用/);
+  });
 
-  test.skipIf(!nodeAvailable)(
-    '跨执行保留状态（同一进程）',
-    async () => {
-      await tool.executeCode(session!, 'const z = 21 * 2');
-      const r = await tool.executeCode(session!, 'z');
-      expect(r.success).toBe(true);
-      expect(r.output).toContain('42');
-    },
-    15000
-  );
+  test('getSupportedLanguages 不再包含 typescript', () => {
+    expect(tool.getSupportedLanguages()).not.toContain('typescript');
+  });
 });

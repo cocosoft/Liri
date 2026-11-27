@@ -1359,6 +1359,11 @@ export class SessionGateway {
     await (await this.store()).updateMessage(sessionId, messageId, message);
   }
 
+  /** P2-4①（2026-11-28）：投影折叠 —— 回收 `messages.jsonl` 重复快照行（不改内容；底层无能力即 no-op）。 */
+  async foldMessageProjection(sessionId: string): Promise<void> {
+    await (await this.store()).foldMessageProjection?.(sessionId);
+  }
+
   /**
    * 软删除单条消息 + 发布事件
    */

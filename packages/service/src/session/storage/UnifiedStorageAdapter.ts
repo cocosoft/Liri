@@ -324,4 +324,13 @@ export class UnifiedStorageAdapter implements SessionStorage {
       { sessionId, messageCount: count }
     );
   }
+
+  /**
+   * P2-4①（2026-11-28）：投影折叠转发 —— 与上面的 `compactSession`（内容压缩，
+   * 显式不支持）**不是一件事**：这里只让底层回收 `messages.jsonl` 的重复快照行。
+   * 底层未实现（内存存储/旧链）即 no-op。
+   */
+  async foldMessageProjection(sessionId: string): Promise<void> {
+    await this.storage.foldMessageProjection?.(sessionId);
+  }
 }

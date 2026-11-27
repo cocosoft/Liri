@@ -96,6 +96,8 @@ function makeDeps(
     isTelemetryEnabled: () => false,
     summarizeSession: () => {},
     flushPendingPersists: async () => {},
+    // P2-4①（2026-11-28）：回合收尾折叠投影（桩：本文件不关心投影落盘）
+    foldMessageProjection: async () => {},
     incToolRound: () => {},
     ...overrides,
   } as unknown as StreamFinalizeDeps;

@@ -181,3 +181,61 @@ describe('2026-11-18：单消息重复快照达预算 ⇒ 自动折叠', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });
+
+/**
+ * P2-4①（2026-11-28，真机 `session_mwz477wj251057474e`）：**回合收尾折叠**重复快照。
+ *
+ * 实测缺陷：一条助手消息在一次工具轮内被整行追加 **42 份**（327 B → 39 KB 渐进增长），
+ * 单条消息累计 ≈630 KB，会话投影 2.83 MB / 328 行；既有阈值（追加 100 次/2 MB、
+ * 单消息 1 MB）都够不着 ⇒ 一行没折叠。
+ * 修复后：上层在**回合收尾**调 `foldMessageProjection`，只有存在重复快照时才重写一次。
+ */
+describe('P2-4①：回合收尾折叠投影', () => {
+  test('有重复快照 ⇒ 折叠为每消息一行；无重复 ⇒ no-op', async () => {
+    const sid = 'sid-fold-projection';
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fold-projection-'));
+    const s = new FileSystemUnifiedStorage({
+      type: StorageType.FILESYSTEM,
+      basePath: dir,
+    });
+    const rows = (): number => {
+      const file = path.join(dir, sid, 'messages.jsonl');
+      if (!fs.existsSync(file)) return 0;
+      return fs
+        .readFileSync(file, 'utf-8')
+        .split('\n')
+        .filter((l) => l.trim().length > 0).length;
+    };
+    const mk = (n: number): UnifiedMessage =>
+      ({
+        id: 'm1',
+        sessionId: sid,
+        role: 'assistant',
+        content: `v${n}`,
+        timestamp: 1,
+        blocks: [{ type: 'text', content: `x${n}` }],
+      }) as unknown as UnifiedMessage;
+
+    await s.addMessage(sid, mk(0));
+    for (let i = 1; i <= 5; i += 1) {
+      await s.updateMessage(sid, 'm1', mk(i));
+    }
+    // 5 次内容变化 ⇒ 5 行追加（朴素追加语义不变）
+    expect(rows()).toBe(6);
+
+    await s.foldMessageProjection(sid);
+    expect(rows()).toBe(1);
+
+    // 折叠不改内容：仍是最后写入的那份
+    const stored = await s.getMessages(sid);
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.content).toBe('v5');
+
+    // 无重复快照 ⇒ 不重写（行数不变）
+    await s.foldMessageProjection(sid);
+    expect(rows()).toBe(1);
+
+    await s.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});

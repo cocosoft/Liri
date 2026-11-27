@@ -1044,6 +1044,38 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   }
 
   /**
+   * P2-4①（2026-11-28，真机 `session_mwz477wj251057474e`）：**回合收尾折叠重复快照**。
+   *
+   * 实测：一条助手消息在一次工具轮内被整行追加 **42 份**（每份都是该消息的完整快照，
+   * 327 B → 39 KB 递增），单条消息累计 ≈630 KB；该会话投影 2.83 MB / 328 行。
+   * 既有两道阈值（追加 100 次 / 2 MB、单消息 1 MB）在"单条 630 KB"时都够不着 ⇒ 一行没折叠。
+   *
+   * 口径：**只在有重复快照时**才重写（`duplicateAppendBytes` 非空）；无重复即 no-op，
+   * 不产生额外 O(n) 重写。折叠不改内容（读侧本就按 id 反向去重、后写覆盖）。
+   *
+   * 调用时机由上层在**回合收尾**决定（流式期间仍按增量追加，不阻塞流）。
+   */
+  async foldMessageProjection(sessionId: string): Promise<void> {
+    const perMessage = this.duplicateAppendBytes.get(sessionId);
+    if (!perMessage || perMessage.size === 0) return;
+    await this.enqueueWrite(sessionId, async () => {
+      const msgs = this.messages.get(sessionId);
+      if (!msgs) return;
+      // 全量重写后重复行已折叠 ⇒ 会话级/单消息记账一并清零
+      this.duplicateAppendBytes.delete(sessionId);
+      this.appendCounts.delete(sessionId);
+      this.appendBytes.delete(sessionId);
+      const startedAt = Date.now();
+      await this.persistMessagesRewrite(sessionId, msgs);
+      logger.info('foldMessageProjection: 回合收尾折叠投影', {
+        sessionId,
+        messageCount: msgs.length,
+        elapsedMs: Date.now() - startedAt,
+      });
+    });
+  }
+
+  /**
    * 定期 compact 异步化（第 6 条）：把"全量重写 + 读回校验"作为一个 op 排入
    * per-session 写队列，fire-and-forget——调用方不等 compact 完成，消除
    * updateMessage 主流程的同步阻塞。队列串行保证与 append 不跨 syscall 竞争

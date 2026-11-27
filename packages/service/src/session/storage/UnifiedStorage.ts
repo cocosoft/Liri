@@ -130,6 +130,15 @@ export interface UnifiedSessionStorage {
   // 工具方法
   sessionIdExists(sessionId: string): Promise<boolean>;
   getStorageInfo(): StorageConfig;
+
+  /**
+   * P2-4①（2026-11-28）：**投影折叠** —— 把 `messages.jsonl` 中同一 messageId 的重复快照
+   * 折叠为一行（不改任何消息内容；读侧本就按 id 反向去重、后写覆盖）。
+   *
+   * 与"会话内容压缩"（`SessionStorage.compactSession` → `CompactionOrchestrator`）**不是一件事**。
+   * 可选实现：内存存储/旧链无投影文件 ⇒ 不实现即 no-op（调用方无需判空）。
+   */
+  foldMessageProjection?(sessionId: string): Promise<void>;
 }
 
 /**

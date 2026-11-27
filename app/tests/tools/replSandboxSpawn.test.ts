@@ -29,6 +29,7 @@ import {
   type LandlockCapability,
   type LandlockConfig,
 } from '@modules/sandbox';
+import { toKernelPath } from '@modules/sandbox/darwin/MacOSSandboxPolicy';
 
 const ON: LandlockConfig = {
   enabled: true,
@@ -159,8 +160,11 @@ describe('planReplSandboxSpawn：macOS Seatbelt', () => {
       expect(p.args[0]).toBe('-p');
       const profile = p.args[1];
       expect(profile).toContain('(deny default)');
-      // 路径按 SBPL 规则转义（Windows 上跑本用例时反斜杠会被转义）
-      expect(profile).toContain(`(subpath "${escapeSbplString(cwd)}")`);
+      // 路径先按内核视角归一（macOS 的 `tmpdir()` 是 `/var/…`，profile 里是 `/private/var/…`），
+      // 再按 SBPL 规则转义（Windows 上跑本用例时反斜杠会被转义）
+      expect(profile).toContain(
+        `(subpath "${escapeSbplString(toKernelPath(cwd))}")`
+      );
       // 与 bash 的 macOS 白名单同源：`/dev`（`2>/dev/null` 等重定向）
       expect(profile).toContain('(subpath "/dev")');
       expect(p.args[2]).toBe('--');

@@ -61,6 +61,8 @@ export const READ_PATH_GATED_TOOLS: ReadonlySet<string> = new Set([
   'grep',
   'read_project_file',
   'code_analysis',
+  // 2026-11-27：LSP 也是"按给定文件读内容"（hover / 诊断会回显源码行）⇒ 同受凭据面读闸约束。
+  'lsp',
 ]);
 
 /**

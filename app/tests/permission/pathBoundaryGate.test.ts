@@ -180,6 +180,17 @@ describe('D4 二期判定单元：evaluateProtectedReadPath', () => {
     ).toBeNull();
   });
 
+  it('`lsp` 按给定文件读内容 ⇒ 同受读闸约束（2026-11-27 补覆盖）', () => {
+    expect(
+      evaluateProtectedReadPath('lsp', { file_path: CREDENTIAL })
+    ).not.toBeNull();
+    expect(
+      evaluateProtectedReadPath('lsp', {
+        file_path: join(tmpdir(), 'normal.ts'),
+      })
+    ).toBeNull();
+  });
+
   it('读不做越界判定（跨工作区读取是常态，不误报 ask）', () => {
     expect(
       evaluateOutOfWorkspaceWrite(

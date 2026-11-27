@@ -54,6 +54,14 @@ export interface MacOSSandboxProfileInput {
    * （漏一个系统/运行时路径 ⇒ 沙箱内的 shell / 解释器直接起不来）。
    */
   readablePaths?: string[];
+  /**
+   * A-1（2026-11-27，第二轮 macOS CI 实证后新增）：是否额外放行 `(allow file-read-metadata)`。
+   *
+   * 为什么可能需要：`subpath` 只约束**内容读**；走到某个 `subpath` 之前要读**父目录元数据**，
+   * 缺这条时连 `sandbox-exec` 拉起的 `/bin/cat` 都会被内核直接杀掉（`exit=null`、无 stderr）。
+   * 代价：允许全盘的 stat/枚举（**不**允许读文件内容），属"读白名单可用性"的必要让步。
+   */
+  allowReadMetadata?: boolean;
 }
 
 /**
@@ -120,6 +128,13 @@ export function buildMacOSSandboxProfile(
       lines.push(`  (subpath "${escapeSbplString(path)}")`);
     }
     lines.push(')');
+  }
+  if (readable.length > 0 && input.allowReadMetadata === true) {
+    lines.push(
+      '',
+      '; 读元数据：走 subpath 前需要父目录的 stat/枚举（不含文件内容）',
+      '(allow file-read-metadata)'
+    );
   }
   lines.push(
     '',

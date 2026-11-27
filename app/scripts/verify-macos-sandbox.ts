@@ -209,10 +209,10 @@ async function main(): Promise<void> {
       join(homedir(), '.cache'),
       allowDir,
     ];
-    const readProfile = buildMacOSSandboxProfile({
+    const readProfileBase = {
       writablePaths: [allowDir, tmpdir(), '/dev'],
       readablePaths: readCandidates,
-    });
+    };
     console.log(
       `[verify-macos-sandbox] 读白名单候选（${readCandidates.length} 条）: ${readCandidates.join(' ')}`
     );
@@ -223,20 +223,31 @@ async function main(): Promise<void> {
       { name: 'git --version', command: 'git --version' },
       { name: 'python3 -c', command: 'python3 -c "1"' },
     ];
-    for (const probe of probes) {
-      const r = await runWithSandboxExec({
-        profile: readProfile,
-        command: probe.command,
-        timeoutMs: TIMEOUT_MS,
-        maxBufferChars: MAX_BUFFER_CHARS,
+    // 两变体同轮对照：只收紧内容读 vs 额外放行元数据（父目录 stat/枚举）
+    const variants = [
+      { label: 'subpath', allowReadMetadata: false },
+      { label: 'subpath+read-metadata', allowReadMetadata: true },
+    ];
+    for (const variant of variants) {
+      const readProfile = buildMacOSSandboxProfile({
+        ...readProfileBase,
+        allowReadMetadata: variant.allowReadMetadata,
       });
-      const detail =
-        r.exitCode === 0
-          ? 'ok'
-          : `exit=${r.exitCode} stderr=${r.stderr.trim().slice(0, 200) || '—'}`;
-      console.log(
-        `[A-1 读白名单诊断] ${r.exitCode === 0 ? '✅' : '❌'} ${probe.name} — ${detail}`
-      );
+      for (const probe of probes) {
+        const r = await runWithSandboxExec({
+          profile: readProfile,
+          command: probe.command,
+          timeoutMs: TIMEOUT_MS,
+          maxBufferChars: MAX_BUFFER_CHARS,
+        });
+        const detail =
+          r.exitCode === 0
+            ? 'ok'
+            : `exit=${r.exitCode} stderr=${r.stderr.trim().slice(0, 200) || '—'}`;
+        console.log(
+          `[A-1 读白名单诊断] [${variant.label}] ${r.exitCode === 0 ? '✅' : '❌'} ${probe.name} — ${detail}`
+        );
+      }
     }
   } catch (error) {
     console.log(

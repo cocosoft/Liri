@@ -90,6 +90,23 @@ describe('buildMacOSSandboxProfile', () => {
     expect(profile).not.toContain('(allow file-read*)\n');
     // 读块必须闭合（与写块同样成对），否则 sandbox-exec 直接报语法错
     expect(profile).toMatch(/\(allow file-read\*\n(\s+\(subpath .*\)\n)+\)/);
+    // 缺省**不**额外放行元数据（要显式开启）
+    expect(profile).not.toContain('(allow file-read-metadata)');
+  });
+
+  it('allowReadMetadata=true ⇒ 额外放行 file-read-metadata（仅在收紧时才生效）', () => {
+    const tightened = buildMacOSSandboxProfile({
+      writablePaths: ['/liri-test/w'],
+      readablePaths: ['/liri-test/sys'],
+      allowReadMetadata: true,
+    });
+    expect(tightened).toContain('(allow file-read-metadata)');
+    // 未收紧（无 readablePaths）⇒ 该开关不产生任何规则（保持零行为变更）
+    const unrestricted = buildMacOSSandboxProfile({
+      writablePaths: ['/liri-test/w'],
+      allowReadMetadata: true,
+    });
+    expect(unrestricted).not.toContain('(allow file-read-metadata)');
   });
 });
 

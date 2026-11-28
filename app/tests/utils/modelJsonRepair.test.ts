@@ -14,6 +14,10 @@
 import { describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { repairModelJson } from '@openliri/infra/utils/json';
+import {
+  describeMissingRequiredParams,
+  withArgParseError,
+} from '@openliri/infra/utils/toolContract/argParseError';
 
 const SRC = readFileSync(
   new URL('../../../packages/infra/src/utils/json.ts', import.meta.url),
@@ -84,6 +88,64 @@ describe('repairModelJson：成对反斜杠不得被二次破坏', () => {
     expect(parsed.file_path).toBe(
       'E:\\PY\\Documents\\CODES\\PY_APP\\output\\p.svg'
     );
+  });
+
+  /**
+   * 2026-11-28 续修：大参数（万级字符）的**第二大失败形态** —— 字符串内裸控制字符。
+   * 模型写多行 SVG 时直接把换行写进 `content`，`JSON.parse` 报
+   * `Bad control character in string literal`，此前三遍修复都不处理它。
+   */
+  it('字符串内裸换行 ⇒ 转成 \\n 后可解析（内容语义不变）', () => {
+    const broken = [
+      '{"file_path":"E:\\\\PY\\\\output\\\\p.svg","content":"<svg>',
+      '  <rect x=\\"1\\"/>',
+      '</svg>","bad":"\\P"}',
+    ].join('\n');
+    const fixed = repairModelJson(broken);
+    expect(() => JSON.parse(fixed)).not.toThrow();
+    const parsed = JSON.parse(fixed) as { content: string };
+    expect(parsed.content).toBe('<svg>\n  <rect x="1"/>\n</svg>');
+  });
+
+  it('结构区的美化换行不受影响', () => {
+    const pretty = '{\n  "a": 1,\n  "b": "x\ty"\n}';
+    const fixed = repairModelJson(pretty);
+    expect(fixed).toContain('\n  "a": 1'); // 结构区换行保留
+    expect(JSON.parse(fixed)).toEqual({ a: 1, b: 'x\ty' }); // 字符串内制表符被转义
+  });
+
+  it('输出被截断 ⇒ 不补全（返回原串，由调用方重发）', () => {
+    const truncated = '{"file_path":"E:\\\\PY\\\\a.svg","content":"<svg><rect';
+    expect(repairModelJson(truncated)).toBe(truncated);
+  });
+});
+
+/**
+ * 2026-11-28：`rawLength` 只能说明"很大"，区分不出「输出没写完」与「转义写坏」。
+ * 两者给模型的正确动作不同（分段重发 vs 修正转义后重发），文案必须分档，
+ * 否则模型会对已完整的串反复原样重试（真机 10760 字符参数）。
+ */
+describe('参数解析失败建议：按截断 / 转义损坏分档', () => {
+  const build = (info?: { truncated: boolean }) =>
+    describeMissingRequiredParams(
+      withArgParseError({ rawLength: 10760, ...info }),
+      ['file_path'],
+      ['file_path', 'content']
+    );
+
+  it('truncated=true ⇒ 指引分段写入', () => {
+    expect(build({ truncated: true }).systemContent).toContain('分段');
+  });
+
+  it('truncated=false ⇒ 指引修正转义，不再误导分段', () => {
+    const out = build({ truncated: false }).systemContent;
+    expect(out).toContain('串是完整的');
+    expect(out).toContain('转义');
+    expect(out).not.toContain('达到上限被截断');
+  });
+
+  it('缺省 truncated（旧落盘记录）⇒ 保守按可能截断处理', () => {
+    expect(build().systemContent).toContain('单次输出');
   });
 });
 

@@ -26,6 +26,14 @@ export interface ArgParseErrorInfo {
    * 没有留在入参里的理由 —— 原始前缀另由适配器写进日志（`rawPreview`）。
    */
   rawLength: number;
+  /**
+   * 原始串是否**被截断**（字符串/括号未闭合）。
+   *
+   * 2026-11-28：`rawLength` 只能提示"很大"，区分不出「输出没写完」与「转义写坏」——
+   * 前者要模型分段重发，后者只需重发一次并注意转义。缺省（旧落盘记录）按"可能截断"
+   * 处理，保持原文案不变。
+   */
+  truncated?: boolean;
 }
 
 /** 构造带诊断的入参（替代裸 `{}`） */
@@ -43,7 +51,34 @@ export function getArgParseError(
   if (!raw || typeof raw !== 'object') return undefined;
   const info = raw as Partial<ArgParseErrorInfo>;
   if (typeof info.rawLength !== 'number') return undefined;
-  return { rawLength: info.rawLength };
+  return typeof info.truncated === 'boolean'
+    ? { rawLength: info.rawLength, truncated: info.truncated }
+    : { rawLength: info.rawLength };
+}
+
+/**
+ * 参数解析失败的可操作建议（按「截断」与「转义损坏」分档）。
+ *
+ * 两者的正确动作**不同**：截断要分段重发；转义损坏只需修正写法后重发。
+ * 混用文案会让模型做无谓的分段写入，或对已完整的串反复重试（真机 2026-11-28：
+ * 10760 字符参数解析失败后，模型原样重试同一调用）。
+ * `truncated` 缺省（旧落盘记录）按"可能截断"给出保守建议，保持原文案不变。
+ */
+function buildParseAdvice(parseErr: ArgParseErrorInfo): string {
+  if (parseErr.truncated === false) {
+    return (
+      `本次调用的参数 JSON 无法解析（原始长度 ${parseErr.rawLength} 字符，串是完整的，` +
+      `属**转义写法**问题：content 内的双引号需写成 \\"、反斜杠需写成 \\\\、换行写成 \\n）。` +
+      `请修正转义后重发同一调用；若内容过长，改用 source_file 传路径（0 输出 token）。`
+    );
+  }
+  return (
+    `本次调用的参数 JSON 不完整（原始长度 ${parseErr.rawLength} 字符，通常因单次输出` +
+    `达到上限被截断）。请把大内容**分段**写入：首次写骨架（不带 append），后续每次 ` +
+    `content ≤4000 字符并用 append:true 追加；若内容已在磁盘上（其它工具已产出），` +
+    `改用 source_file 传路径而不是复述全文（0 输出 token）；编辑类工具请减小 ` +
+    `old_string/new_string。不要原样重复同一调用。`
+  );
 }
 
 /**
@@ -73,11 +108,7 @@ export function describeMissingRequiredParams(
     (k) => k !== ARG_PARSE_ERROR_KEY
   );
   const advice = parseErr
-    ? `本次调用的参数 JSON 不完整（原始长度 ${parseErr.rawLength} 字符，通常因单次输出` +
-      `达到上限被截断）。请把大内容**分段**写入：首次写骨架（不带 append），后续每次 ` +
-      `content ≤4000 字符并用 append:true 追加；若内容已在磁盘上（其它工具已产出），` +
-      `改用 source_file 传路径而不是复述全文（0 输出 token）；编辑类工具请减小 ` +
-      `old_string/new_string。不要原样重复同一调用。`
+    ? buildParseAdvice(parseErr)
     : receivedKeys.length === 0
       ? `本次调用未携带任何参数。请按工具定义补全参数后重试（大内容请分段写入）。`
       : '';

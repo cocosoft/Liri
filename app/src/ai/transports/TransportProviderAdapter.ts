@@ -17,7 +17,10 @@
  */
 import type { BaseTransport } from './BaseTransport';
 import { getLogger } from '@openliri/infra/monitoring';
-import { parseModelJsonObject } from '@openliri/infra/utils/json';
+import {
+  looksTruncated,
+  parseModelJsonObject,
+} from '@openliri/infra/utils/json';
 // 参数 JSON 解析失败的保留键诊断（2026-10-27，见该文件头注）
 import { withArgParseError } from '@openliri/infra/utils/toolContract/argParseError';
 import type {
@@ -91,10 +94,15 @@ function toParsedToolCall(tc: NormalizedToolCall): ParsedToolCall {
     });
     // 2026-10-27：保留键**只带长度**。该键会随 assistant `tool_calls` 落盘并在后续轮
     // 回放给模型（真机 `session_mvqstue8ecef7606df`），原始前缀只进上面的日志。
+    // 2026-11-28：补 `truncated` —— 让工具侧文案能区分「输出被截断（分段重发）」与
+    // 「转义写法损坏（修正后重发）」，避免模型对已完整的串反复原样重试。
     return {
       id: tc.id,
       name: tc.name,
-      arguments: withArgParseError({ rawLength }),
+      arguments: withArgParseError({
+        rawLength,
+        truncated: looksTruncated(tc.arguments ?? ''),
+      }),
     };
   }
   return { id: tc.id, name: tc.name, arguments: args };

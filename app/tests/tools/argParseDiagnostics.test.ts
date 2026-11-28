@@ -125,12 +125,26 @@ describe('适配器：解析失败 ⇒ 携带诊断（不再静默空参数）',
     const info = getArgParseError(args);
     expect(info).toBeDefined();
     expect(info?.rawLength).toBe(truncated.length);
-    // 落盘后会回放给模型的载荷：只有长度，不带内容前缀
+    expect(info?.truncated).toBe(true);
+    // 落盘后会回放给模型的载荷：只有长度 + 截断标记，不带内容前缀
     expect(
       Object.keys(args[ARG_PARSE_ERROR_KEY] as Record<string, unknown>)
-    ).toEqual(['rawLength']);
+    ).toEqual(['rawLength', 'truncated']);
     // 工具真正的必填键确实缺失（执行层据此走缺参分支）
     expect(args.file_path).toBeUndefined();
+  });
+
+  /**
+   * 2026-11-28：串**完整**但转义写坏（`Bad control character` / 非法转义）不等于截断 ——
+   * 文案必须区分，否则模型会对已经写完的串反复分段重发。
+   */
+  it('串完整但语法不合法 ⇒ truncated=false（与截断区分）', () => {
+    // 模型把两次调用拼在一起：括号全部闭合，不是"没写完"
+    const broken = '{"file_path":"a.md","content":"hi"} {"file_path":"b.md"}';
+    const adapter = new TransportProviderAdapter({} as never);
+    const res = adapter.toChatResponse(makeNormalized(broken), 'm');
+    const args = res.tool_calls?.[0]?.arguments as Record<string, unknown>;
+    expect(getArgParseError(args)?.truncated).toBe(false);
   });
 
   it('负向：合法 JSON ⇒ 原样参数，不含保留键', () => {

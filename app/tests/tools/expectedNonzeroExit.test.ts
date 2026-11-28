@@ -161,3 +161,55 @@ describe('isEnvironmentProbeFailure：安装失败 / 命令不存在探测', () 
     ).toBe('invalid');
   });
 });
+
+/**
+ * 2026-11-28（真机 `session_mwz477wj251057474e` 15:31Z 段）：**模块导入探测失败 = 环境层**。
+ *
+ * 现场：模型连做 `python -c "import cairosvg; print(…)"` / `import playwright` /
+ * `where magick & where rsvg-convert …` 等探测，全部因本机没装而失败，却仍计入
+ * `consecutiveInvalidTurns`（`reActLoop:all-tools-failed`，iteration 8/10/13/15/16/18）。
+ * 既有分型只覆盖"安装命令 + where/which"，**模块导入探测**漏在网外。
+ */
+describe('isEnvironmentProbeFailure：模块导入探测（2026-11-28 补）', () => {
+  const yes = (command: string, exitCode = 1): void => {
+    expect(isEnvironmentProbeFailure({ command, exitCode })).toBe(true);
+  };
+  const no = (command: string, exitCode = 1): void => {
+    expect(isEnvironmentProbeFailure({ command, exitCode })).toBe(false);
+  };
+
+  it('python -c "import …"（含分号后的 print）⇒ 环境层', () => {
+    yes(`python -c "import cairosvg; print('cairosvg ok')"`);
+    yes(`python -c "import playwright; print('playwright ok')"`);
+    yes(`py -c "from cairosvg import svg2png"`);
+    yes(`python3.11 -c "import PIL; print(PIL.__version__)"`);
+  });
+
+  it('node -e/-p require(...) ⇒ 环境层', () => {
+    yes(`node -e "require('sharp')"`);
+    yes(`node -p "require('resvg-js').version"`);
+    yes(`node -e "const m = require('canvas')"`);
+  });
+
+  it('POSIX 路径探测 test -e/-f/-d ⇒ 环境层', () => {
+    yes('test -e node_modules/sharp');
+    yes('test -d output');
+  });
+
+  it('多个模块探测用 & 串联（真机形态）⇒ 环境层', () => {
+    yes(
+      `python -c "import playwright; print('playwright ok')" & python -c "import resvg_py; print('resvg ok')" & python -c "import svglib; print('svglib ok')"`
+    );
+  });
+
+  it('负向：普通脚本 / 非导入的 -c 体 / 复合命令 / 产物核对 ⇒ 不得误判', () => {
+    no('python scripts/build.py');
+    no(`python -c "print(open('x').read())"`);
+    no('node app.js');
+    // 带 && 的复合命令不按"整条即探测"处理（语义主体未必是探测）
+    no(`python -c "import x" && node build.js`);
+    // 产物存在性核对：失败是任务未达成，不得洗白成环境层
+    no('dir /b output\\pelican.svg');
+    no('ls output');
+  });
+});

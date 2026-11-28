@@ -82,7 +82,40 @@ const ENV_PROBE_SEGMENT_PATTERNS: readonly RegExp[] = [
   /^(?:apt-get|apt|brew|dnf|yum)\s+install\b/i,
   // 可执行文件存在性探测：非零退出 = "没找到"，属事实查询而非工具故障
   /^(?:where|which|command\s+-v)\b/i,
+  // 路径存在性探测（POSIX `test -e/-f/-d`）：非零 = "不存在"，同属事实查询
+  /^test\s+-(?:e|f|d)\b/i,
 ];
+
+/**
+ * **模块导入探测**（2026-11-28 补，真机 `session_mwz477wj251057474e` 15:31Z 段）：
+ * `python -c "import cairosvg; print('cairosvg ok')"` / `node -e "require('sharp')"`。
+ *
+ * 为什么不能沿用上面的"取最后一段"口径：这类命令体内部常带 `;`
+ *（`import X; print(...)`），按 `;` 切段后最后一段只剩 `print(...)` ⇒ 永远匹配不到。
+ * 因此对**整条命令**匹配头部形态（仅当整条就是一次探测调用；带 `&&` 的复合命令不在此列）。
+ *
+ * 刻意**不含** `dir /b <path>` / `ls <path>`：那既可能是"依赖是否存在"的探测，
+ * 也可能是"我的产物是否写出来了"的核对 —— 后者失败属**真实任务未达成**，
+ * 交给既有 invalid / 步骤裁决，不在此洗白。
+ */
+const MODULE_PROBE_PATTERN =
+  /^(?:(?:python[0-9.]*|py)\s+-c\s+["']?\s*(?:import|from)\s|node\s+(?:-e|-p)\s+["']?[^"']{0,60}?require\()/i;
+
+/**
+ * 是否整条命令**只由**模块导入探测组成（`&` 串联的多个探测也算；`|` / `||` 一律不算）。
+ *
+ * 为什么按 `&` 切而不是按 `;`：探测体内常带 `;`（`import X; print(...)`），按 `;` 切会让
+ * 每一段都不完整。`|` / `||` 会让"退出码语义主体"不明确 ⇒ 直接排除，不判形。
+ */
+function isModuleProbeChain(command: string): boolean {
+  const normalized = command.replace(/\d?>&\d/g, '').trim();
+  if (!normalized || /\|/.test(normalized)) return false;
+  const parts = normalized
+    .split(/&&|&/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return parts.length > 0 && parts.every((p) => MODULE_PROBE_PATTERN.test(p));
+}
 
 /**
  * 是否属于「环境层失败」（安装失败 / 命令不存在探测失败）。
@@ -97,10 +130,15 @@ export function isEnvironmentProbeFailure(params: {
   if (params.exitCode === undefined || params.exitCode === 0) return false;
   const command = (params.command ?? '').trim();
   if (!command) return false;
+  // 2026-11-28：模块导入探测 —— 单条或 `&` 串联时按整条判形（体内含 `;`，按 `;` 切段会失效）
+  if (isModuleProbeChain(command)) return true;
   const segments = command
     .split(/\|\||&&|[|;&]/)
     .map((s) => s.trim().replace(/^["']|["']$/g, ''))
     .filter(Boolean);
   const last = segments[segments.length - 1] ?? '';
-  return ENV_PROBE_SEGMENT_PATTERNS.some((re) => re.test(last));
+  return (
+    MODULE_PROBE_PATTERN.test(last) ||
+    ENV_PROBE_SEGMENT_PATTERNS.some((re) => re.test(last))
+  );
 }

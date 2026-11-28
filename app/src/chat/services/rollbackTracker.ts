@@ -18,6 +18,8 @@
  */
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
+import { isAbsolute, resolve } from 'node:path';
+import { getPlanRoundIntegration } from '@openliri/infra/security';
 import type {
   FileOperation,
   RollbackIntegration,
@@ -30,6 +32,26 @@ import {
 
 const logger = getLogger('chat:toolExecution');
 
+/**
+ * 取该会话**当前应记账的**回滚集成（2026-11-28）。
+ *
+ * 优先级：**计划执行轮**（PDCA / 长程任务）> 聊天会话集成。
+ *
+ * 为什么要有计划轮这一层：PDCA 快路径的工具写入同样经由 `ToolExecutionService`，
+ * 但它没有聊天工具轮 ⇒ 只有会话集成时会打「onRoundStart 之前调用，跳过追踪」而整轮丢失
+ * （真机 `output/image_explanation.md` / `output/pelican_bicycle.svg`）。计划轮单独一份集成
+ * 可避免与并发的聊天轮互相 `reset`（见 `packages/infra/src/security/rollback/planRound.ts`）。
+ */
+export function resolveRollbackIntegration(
+  sessionId: string,
+  deps: RollbackTrackerDeps
+): RollbackIntegration | undefined {
+  return (
+    getPlanRoundIntegration(sessionId) ??
+    deps.rollbackIntegrations.get(sessionId)
+  );
+}
+
 export interface RollbackTrackerDeps {
   rollbackIntegrations: Map<string, RollbackIntegration>;
   /** 会话读取（`sessionGateway.getSession`；用于解析父会话） */
@@ -38,6 +60,31 @@ export interface RollbackTrackerDeps {
   getRunningStep(
     sessionId: string
   ): { planId: string; stepId: string } | null | undefined;
+  /**
+   * 相对路径的**基准目录**（与工具 `options.cwd` 同源；2026-11-28）。
+   *
+   * 为什么必须注入：工具（`file_write` / `file_edit`）把相对路径解析到 `options.cwd`
+   * （`resolveFilePath`），而回滚录制此前直接用**原始相对路径** ⇒ pre-image 备份/undo 落在
+   * 进程 cwd 而不是工具真实写入的位置（PDCA 步骤普遍写 `output/xxx.md` 这类相对路径）。
+   * 未注入 ⇒ 保持旧行为（原样记录）。
+   */
+  getToolBaseDir?: (sessionId: string) => string | undefined;
+}
+
+/**
+ * 相对路径 ⇒ 绝对路径（基准目录 = 工具 `options.cwd`）。
+ *
+ * 只做最小对齐：绝对路径原样返回（工具同样直接 resolve）；相对路径拼到基准目录上。
+ * 不做环境变量展开（工具侧 `resolveFilePath` 会做）—— 未展开时源文件找不到 ⇒
+ * 集成按"新建文件"记 `created`，与改动前行为一致，不会误备份到别处。
+ */
+function toAbsoluteToolPath(
+  rawPath: string,
+  baseDir: string | undefined
+): string {
+  if (!baseDir) return rawPath;
+  const normalized = rawPath.replace(/\\/g, '/');
+  return isAbsolute(normalized) ? rawPath : resolve(baseDir, normalized);
 }
 
 export interface RollbackTrackerParams {
@@ -61,12 +108,18 @@ export async function trackFileOpBeforeExecute(
   const runningStep = sessionId ? deps.getRunningStep(sessionId) : null;
   const filePath = args?.file_path as string | undefined;
   if (!filePath || !sessionId) return;
+  // 2026-11-28：相对路径按**工具 cwd** 解析为绝对路径 —— 工具（`resolveFilePath`）就是这样
+  // 落盘的；不归一化会让 pre-image 备份/undo 指向进程 cwd（PDCA 步骤普遍写相对路径）。
+  const absPath = toAbsoluteToolPath(
+    filePath,
+    deps.getToolBaseDir?.(sessionId)
+  );
 
-  const integration = deps.rollbackIntegrations.get(sessionId);
+  const integration = resolveRollbackIntegration(sessionId, deps);
   if (integration) {
     // D7 三期（2026-11-14）：带上工具名 ⇒ 副作用流水可按「工具 → 文件变更」归属
     const op: FileOperation = {
-      path: filePath,
+      path: absPath,
       type: 'modified',
       toolName,
       ...(runningStep
@@ -93,10 +146,11 @@ export async function trackFileOpBeforeExecute(
       const sess = rawSess as ChatSession | null | undefined;
       const parentId = sess?.metadata?.parentSessionId as string | undefined;
       if (parentId) {
-        const parentIntegration = deps.rollbackIntegrations.get(parentId);
+        // 2026-11-28：父会话同样优先记到**计划轮**（父会话可能正处于 PDCA / 长程任务执行中）
+        const parentIntegration = resolveRollbackIntegration(parentId, deps);
         if (parentIntegration) {
           const op: FileOperation = {
-            path: filePath,
+            path: absPath,
             type: 'modified',
             toolName,
             ...(runningStep

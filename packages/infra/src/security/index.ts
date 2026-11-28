@@ -212,6 +212,10 @@ export {
   generateDetailedUndoContext,
   shouldInjectContext,
   RollbackIntegration,
+  // 2026-11-28：计划执行轮（PDCA / 长程任务）的录制单元与活动登记
+  PlanFileRound,
+  getPlanRoundIntegration,
+  clearPlanRounds,
   xxHash,
   encodeFilePath,
   xxHashBuffer,

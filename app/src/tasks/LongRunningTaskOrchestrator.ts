@@ -172,6 +172,7 @@ import {
   type BlockedCommandEntry,
 } from './lro/blockedCommandLedger.js';
 import { resolveCommandPolicyVersion } from './lro/commandPolicyVersion.js';
+import { runWithPlanFileRound } from './planRoundRecorder.js';
 import type { TaskPolicySnapshot } from './lro/policySnapshot.js';
 import {
   captureTaskPolicySnapshot,
@@ -1248,8 +1249,13 @@ export class LongRunningTaskOrchestrator {
         break;
       }
 
-      // Execute
-      await this.executeAllSteps();
+      // Execute（2026-11-28：整轮文件回滚录制 —— 此前非聊天路径无轮生命周期）
+      await runWithPlanFileRound(
+        this._sessionId,
+        [this.isolation.workspace],
+        this.planId ?? this.taskId,
+        () => this.executeAllSteps()
+      );
 
       // Review + Decide
       const roundStop = await reviewAndDecideRound(this.requirePlan(), {

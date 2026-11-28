@@ -74,6 +74,9 @@ import {
   setPdcaReceiptSink,
   setStepLoopFactory,
   setTaskSessionPolicyPort,
+  // 2026-11-28：计划执行轮（PDCA / 长程任务）的文件回滚录制
+  beginPlanFileRound,
+  endPlanFileRound,
 } from '@modules/tasks';
 // P2（2026-11-04，§3.3）：会话活跃长程任务 → 任务档审批（infra 端口）
 import { setActiveTaskIdResolver } from '@openliri/infra/permission';
@@ -531,6 +534,10 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     },
     persistMessage: (sid, msg) =>
       host._msgPersist.addAndPersistMessage(sid, msg),
+    // 2026-11-28：计划执行轮的文件回滚录制（PDCA 快路径写文件此前无 pre-image/无快照）
+    startPlanFileRound: (sid) => beginPlanFileRound(sid),
+    endPlanFileRound: (sid, summary) => endPlanFileRound(sid, summary),
+    persistSessionMetadata: (session) => host.persistSessionMetadata(session),
     // 转正（2026-09-01）：任务分解 Provider——任务分工→chat 路由→ProviderRegistry
     // （模型体系唯一事实来源，不硬编码模型名）；失败/缺失返回 null，TaskDecomposer 降级简单分解
     getDecomposerProvider: async () => {

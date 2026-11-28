@@ -16,6 +16,8 @@
  *  ⑥ 追踪抛错 ⇒ 不影响调用方（不抛、不产生未处理拒绝）。
  */
 import { describe, expect, it } from 'bun:test';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { trackFileOpBeforeExecute } from '../../src/chat/services/rollbackTracker';
 import type { RollbackTrackerDeps } from '../../src/chat/services/rollbackTracker';
@@ -42,6 +44,8 @@ function makeDeps(partial: {
   session?: unknown;
   runningStep?: { planId: string; stepId: string } | null;
   calls?: string[];
+  /** 2026-11-28：相对路径基准目录（与工具 `options.cwd` 同源） */
+  baseDir?: string;
 }): RollbackTrackerDeps {
   const calls = partial.calls ?? [];
   return {
@@ -54,6 +58,7 @@ function makeDeps(partial: {
       calls.push(`getRunningStep:${sessionId}`);
       return partial.runningStep ?? null;
     }) as never,
+    ...(partial.baseDir ? { getToolBaseDir: () => partial.baseDir } : {}),
   };
 }
 
@@ -173,5 +178,35 @@ describe('trackFileOpBeforeExecute：文件操作前回滚追踪（特征化）'
     await flush();
     await flush();
     expect(ops).toHaveLength(1);
+  });
+
+  it('⑦ 相对路径 ⇒ 按工具 cwd 解析为绝对路径（否则 pre-image 落错位置）', async () => {
+    const ops: Op[] = [];
+    const integrations = new Map([['s7', integration(ops)]]);
+
+    await trackFileOpBeforeExecute({
+      toolCall: { id: 'c7', name: 'file_write', sessionId: 's7' },
+      args: { file_path: 'output/report.md' },
+      deps: makeDeps({
+        integrations,
+        baseDir: join(tmpdir(), 'ws-abs'),
+      }),
+    });
+
+    expect(ops).toHaveLength(1);
+    expect(ops[0]!.path).toBe(join(tmpdir(), 'ws-abs', 'output', 'report.md'));
+  });
+
+  it('⑧ 绝对路径 ⇒ 即使有基准目录也原样保留', async () => {
+    const ops: Op[] = [];
+    const integrations = new Map([['s8', integration(ops)]]);
+
+    await trackFileOpBeforeExecute({
+      toolCall: { id: 'c8', name: 'file_edit', sessionId: 's8' },
+      args: { file_path: '/ws/keep.ts' },
+      deps: makeDeps({ integrations, baseDir: '/other' }),
+    });
+
+    expect(ops[0]!.path).toBe('/ws/keep.ts');
   });
 });

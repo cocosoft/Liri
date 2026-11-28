@@ -25,6 +25,8 @@ import { ErrorHandler } from '@openliri/kernel';
 import { convergenceDetector } from '../services/ConvergenceDetector.js';
 import { toolResultRegistry } from '@modules/tool/ToolResultRegistry.js';
 import { resolveToolCwd } from './toolCwdScope';
+// 2026-11-28：回滚录制的相对路径基准目录与工具 cwd 同源（会话工作区，缺省项目根）
+import { resolveProjectRoot } from '@openliri/infra/environment';
 // G8（2026-11-03）：会话工作区不可用时向事件流投影一次提示（界面可见）
 import type { LiriEvent } from '@modules/session/types/events';
 // T3 stage 7（2026-11-17）：媒体交付事件随图像结果登记外移至 `./imageResultRegistration`
@@ -867,6 +869,10 @@ export class ToolExecutionService {
           this.deps.sessionGateway.getSession(sessionId),
         getRunningStep: (sessionId) =>
           taskOrchestrator.getRunningStepForSession(sessionId),
+        // 2026-11-28：相对路径按工具 cwd 解析（与 `file_write` 的 `resolveFilePath` 同源），
+        // 否则 pre-image/undo 会落到进程 cwd 而不是模型真实写入的位置
+        getToolBaseDir: (sessionId) =>
+          this.deps.getSessionWorkspacePath(sessionId) ?? resolveProjectRoot(),
       },
     });
 

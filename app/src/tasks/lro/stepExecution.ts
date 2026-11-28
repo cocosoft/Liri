@@ -16,6 +16,9 @@
  */
 
 import { getLogger } from '@openliri/infra/monitoring';
+// 2026-11-28：计划执行轮「写前 pre-image」追踪（本链直调 tool.execute，不经 chat 执行服务）
+import { trackPlanWriteBeforeExecute } from './planWriteTracking.js';
+import { isAbsolute, resolve } from 'node:path';
 // #28（2026-10-30）：任务回写内容只取可读字段（工具结果契约类型，避免裸字面量）
 import type { ToolResult } from '@openliri/infra/utils/toolContract';
 import { isCommandToolName } from '@openliri/infra/utils/toolContract/toolRoles';
@@ -1239,6 +1242,15 @@ async function handleDefaultExecutorFailure(
 }
 
 /**
+ * 把工具入参路径解析为**绝对路径**（相对路径以任务工作区为根，与工具 cwd 同源）。
+ *
+ * 回滚录制需要绝对路径（pre-image 备份 + 快照 manifest 都用它定位源文件）。
+ */
+function toWorkspaceAbsolutePath(workspace: string, raw: string): string {
+  return isAbsolute(raw) ? raw : resolve(workspace, raw);
+}
+
+/**
  * P3-2（复杂度清理）：放行后的**真实执行 + 记账**（从 `executeTools` 内联回调原样外移）。
  *
  * 副作用顺序与文案逐字未变：执行 → 安全拦截台账（steering）→ 阻塞命令台账（续跑短路）→
@@ -1259,6 +1271,19 @@ async function runAuthorizedToolCall(args: {
   repeatedReads: RepeatedReadCache;
 }): Promise<{ outcome: ToolCallOutcome; securityBlocked: boolean }> {
   const { tc, tool, callContext, deps, step, stepStats } = args;
+  // 2026-11-28：写类工具**执行前**记 pre-image（undo 的唯一内容来源）。
+  // 本链直调 `tool.execute`，不经过 chat 的 `ToolExecutionService` ⇒ 必须显式补。
+  // 判据与"产物读写台账"同源（`classifyArtifactAccess`），避免两处口径分裂。
+  const access = classifyArtifactAccess(tc.name, tc.arguments);
+  if (access?.kind === 'write') {
+    await trackPlanWriteBeforeExecute({
+      sessionId: deps.getSessionId(),
+      path: toWorkspaceAbsolutePath(deps.isolation.workspace, access.path),
+      toolName: tc.name,
+      planId: deps.getPlanId(),
+      stepId: step.id,
+    });
+  }
   // 保留键可能随合法参数一起出现（解析失败时携带诊断）⇒ 执行前剥除，不污染工具入参
   // F5（2026-11-22）：统一超时 + 取消（派生 controller 交给工具）
   const toolResult = await runWithToolDeadline(
@@ -1313,7 +1338,6 @@ async function runAuthorizedToolCall(args: {
   // 2026-10-08（机械保障 · 写后读回）：登记本步的产物读写台账。
   // 仅在**调用未报错**时登记（失败调用不构成"已写入/已读回"）。
   {
-    const access = classifyArtifactAccess(tc.name, tc.arguments);
     const tr = toolResult as
       | { success?: boolean; error?: string }
       | null

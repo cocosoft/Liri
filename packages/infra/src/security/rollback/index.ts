@@ -104,5 +104,13 @@ export {
 // ==================== 集成层 ====================
 export { RollbackIntegration } from './RollbackIntegration';
 
+// ==================== 计划执行轮（非聊天路径） ====================
+// 2026-11-28：PDCA / 长程任务的轮生命周期（与聊天轮隔离），见 `planRound.ts` 头注。
+export {
+  PlanFileRound,
+  getPlanRoundIntegration,
+  clearPlanRounds,
+} from './planRound';
+
 // ==================== 哈希工具 ====================
 export { xxHash, encodeFilePath, xxHashBuffer } from './xxHash';

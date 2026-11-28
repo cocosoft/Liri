@@ -77,6 +77,13 @@ export type {
 } from './PlanDrivenLoop';
 // T-②05（2026-10-03）：快速路径判据的**运行时解析**（读 GlobalConfig.fastPath，缺省回退默认）
 export { resolveFastPathPolicy } from './fastPathPolicy';
+// 2026-11-28：计划执行轮（PDCA / 长程任务）的文件回滚录制 —— 全部在 PDL 快速路径与
+// `LongRunningTaskOrchestrator.executeAllSteps` 里成对使用（见其头注）
+export {
+  beginPlanFileRound,
+  endPlanFileRound,
+  runWithPlanFileRound,
+} from './planRoundRecorder';
 // T-②06（2026-10-03）：经验自动演化 —— 审计落盘出口（`ChatManager` 注入）+ 编排入口
 export { setEvolutionAuditSink } from './evolution/EvolutionAudit';
 export {

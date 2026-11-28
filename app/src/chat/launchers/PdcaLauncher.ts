@@ -96,6 +96,19 @@ export interface PdcaLauncherDeps {
    * `<terminal>` 之类**文本**当工具调用输出，而步骤判定会把它当完成 ⇒ **假完成**。
    */
   getToolDefinitions?: (sessionId: string) => ToolDefinition[];
+  /**
+   * 计划执行轮的文件回滚录制（2026-11-28）：开始/结束。
+   *
+   * 未注入 ⇒ 不录制（与改动前一致）。实现见 `ChatManager.startPlanFileRound` ——
+   * 与聊天工具轮**隔离**的独立集成（避免并发聊天轮重置 tracker）。
+   */
+  startPlanFileRound?: (sessionId: string) => Promise<number | null>;
+  endPlanFileRound?: (
+    sessionId: string,
+    messageSummary: string
+  ) => Promise<void>;
+  /** 把会话 metadata 落盘（计划轮号写回后调用；未注入 ⇒ 仅内存） */
+  persistSessionMetadata?: (session: ChatSession) => Promise<void>;
 }
 
 /**
@@ -571,6 +584,62 @@ export class PdcaLauncher {
     }
   }
 
+  /**
+   * 计划执行轮：开始文件录制，并把轮号写回会话 metadata（2026-11-28）。
+   *
+   * 元数据用途：`/rewind`（消息截断）按 `metadata.roundIndex[用户消息]` 取"计划开始之前"的
+   * 轮号，交给 `undoRoundsSince` 级联撤消 ⇒ 计划写下的文件可随对话一起回退。
+   * 拿不到会话/用户消息 ⇒ 只录制不映射（不猜）。
+   *
+   * 返回 `null` ⇒ 未开始录制（未接线 / 启动失败），调用方照常执行任务。
+   */
+  private async _beginPlanFileRound(sessionId: string): Promise<number | null> {
+    const roundId = (await this.deps.startPlanFileRound?.(sessionId)) ?? null;
+    if (roundId === null) return null;
+
+    const session = this.deps.sessionMap.get(sessionId);
+    if (!session) return roundId;
+    const metadata = session.metadata as unknown as Record<string, unknown>;
+    const roundIndex =
+      (metadata['roundIndex'] as Record<string, number> | undefined) ?? {};
+    const lastUser = [...(session.messages ?? [])]
+      .reverse()
+      .find((m) => m.role === 'user');
+    if (lastUser?.id) {
+      // 指向"计划开始之前的轮号"：截断到该用户消息时，其后（含计划轮）全部撤消
+      roundIndex[lastUser.id] = roundId - 1;
+      metadata['roundIndex'] = roundIndex;
+    }
+    metadata['roundCounter'] = roundId;
+    try {
+      await this.deps.persistSessionMetadata?.(session);
+    } catch (error) {
+      // @ignore-catch — 元数据落盘失败只影响重启后的 /rewind，不影响本轮录制
+      logger.warn('计划轮号落盘失败（本次运行内仍可回退）', {
+        sessionId,
+        roundId,
+        error: String(error),
+      });
+    }
+    return roundId;
+  }
+
+  /** 计划执行轮：结束录制（落轮快照）。未开始 / 失败均静默（CS03-002）。 */
+  private async _endPlanFileRound(
+    sessionId: string,
+    messageSummary: string
+  ): Promise<void> {
+    try {
+      await this.deps.endPlanFileRound?.(sessionId, messageSummary);
+    } catch (error) {
+      // @ignore-catch — 快照失败不得改变任务结论
+      logger.warn('计划轮收尾失败（快照可能缺失）', {
+        sessionId,
+        error: String(error),
+      });
+    }
+  }
+
   async launch(
     projectId: string,
     description: string,
@@ -712,6 +781,19 @@ export class PdcaLauncher {
             // （否则 `stats:demand` 指标 4 会把许愿式任务算成 interactive）
             ...(opts?.demand ? { demand: true } : {}),
           });
+          // 2026-11-28：**计划执行轮**的文件回滚录制（整 run 一轮）。
+          // 为什么整 run 一轮而不是每步一轮：`RollbackIntegration` 内含单个 tracker，
+          // 而步骤批次是**并行**执行的（同会话多步并发）⇒ 共用 trackers 会互相 reset；
+          // 每步各建一轮则轮号/快照归属都需再设计。整 run 一轮即可拿到 pre-image + 快照
+          // （`/rewind` 按"计划开始前轮号"级联撤消），且与聊天轮互不影响。
+          const fileRoundId = await this._beginPlanFileRound(sessionId);
+          if (fileRoundId !== null) {
+            logger.info('PDCA 计划轮开始录制', {
+              sessionId,
+              taskId,
+              fileRoundId,
+            });
+          }
           try {
             // S3 前置（2026-09-05，4.0 审计 §9.8）：补齐 registerPlanLoop 调用点——
             // 此前 loopBySession 恒空，abortSessionPlans（req close → 会话中止）对
@@ -821,6 +903,8 @@ export class PdcaLauncher {
             }
           } finally {
             unregisterPlanLoop(taskId, planLoop);
+            // 计划轮收尾（落快照 + 撤销登记）；内部失败只 warn，不影响任务结论
+            await this._endPlanFileRound(sessionId, description);
           }
           return;
         } catch (err) {

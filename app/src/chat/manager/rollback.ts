@@ -41,6 +41,7 @@ import {
 import {
   RollbackIntegration,
   FileOperationTracker,
+  loadSnapshot,
   type FileChange,
 } from '@openliri/infra/security';
 import type { SessionGateway } from '@modules/session';
@@ -370,8 +371,18 @@ export class ChatRollback {
     // 倒序撤消（从最新轮次往最早）
     for (let r = maxRound; r > sinceRoundId; r--) {
       try {
-        await integration.undoRound(r);
-        results.push({ roundId: r, success: true });
+        // 2026-11-28：**无快照的轮直接跳过，不算失败**。
+        // 轮号是连续分配的（`toolResultRegistry.nextRound`），但只有"本轮确有文件变更"才会写
+        // manifest（`onRoundEnd` 无变更返回 null）⇒ 逐个 `undoRound` 会把大量空轮报成
+        // 「快照 Rn 不存在」。计划执行轮（PDCA）纳入同一号段后空轮更多，故按"没有 = 无需撤消"处理；
+        // manifest 存在但损坏仍由 `executeUndo` 抛错并如实上报（不掩盖真问题）。
+        const snapshot = await loadSnapshot(sessionId, r);
+        if (!snapshot) {
+          results.push({ roundId: r, success: true });
+        } else {
+          await integration.undoRound(r);
+          results.push({ roundId: r, success: true });
+        }
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         results.push({ roundId: r, success: false, error: errorMsg });

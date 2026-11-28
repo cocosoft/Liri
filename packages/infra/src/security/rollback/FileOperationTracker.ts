@@ -45,6 +45,21 @@ import type { FileChange, FileChangeType, FileStat, ScanStatus } from './types';
 const logger = getLogger('FileOperationTracker');
 
 /**
+ * 基线/增量扫描共同跳过的目录名（2026-11-28：两处口径**对齐**）。
+ *
+ * 此前只有「新文件扫描」跳过这些目录，「起始基线扫描」不跳 ⇒ 扫描项目根时会对
+ * `node_modules` 下大量文件逐个 `stat`（真机 68000+ 文件、最长 18s，见
+ * `app/src/chat/orchestrator/streamMessageRollbackRound.ts` 头注的事故）。
+ * 两处用同一份清单 ⇒ 既降耗时，又不产生"新文件扫描看得见、基线扫描看不见"的不对称假阴。
+ */
+const SKIPPED_DIR_NAMES = new Set([
+  'node_modules',
+  '.git',
+  '__pycache__',
+  '.venv',
+]);
+
+/**
  * 文件操作追踪器
  */
 export class FileOperationTracker {
@@ -199,7 +214,7 @@ export class FileOperationTracker {
         const fullPath = join(dirPath, entry.name);
 
         if (entry.isDirectory()) {
-          if (recursive) {
+          if (recursive && !SKIPPED_DIR_NAMES.has(entry.name)) {
             await this.scanDirectory(fullPath, recursive, startTime, timeoutMs);
           }
         } else if (entry.isFile()) {
@@ -290,13 +305,7 @@ export class FileOperationTracker {
             if (Date.now() - startTime > TIMEOUT_MS) return;
             const fullPath = join(dirPath, entry.name);
             if (entry.isDirectory()) {
-              if (
-                entry.name === 'node_modules' ||
-                entry.name === '.git' ||
-                entry.name === '__pycache__' ||
-                entry.name === '.venv'
-              )
-                continue;
+              if (SKIPPED_DIR_NAMES.has(entry.name)) continue;
               await collectNewFiles(fullPath);
             } else {
               newFiles.add(fullPath);

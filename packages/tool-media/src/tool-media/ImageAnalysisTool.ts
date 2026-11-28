@@ -234,7 +234,9 @@ const ENV_RPC_FAILURE_CODES: ReadonlySet<string> = new Set([
 ]);
 
 /** 从（鸭子类型的）RPC 错误取 env 失败分型；非环境类 ⇒ `undefined`（导出供同类工具/单测复用） */
-export function envFailureKindOf(error: unknown): 'env_unavailable' | undefined {
+export function envFailureKindOf(
+  error: unknown
+): 'env_unavailable' | undefined {
   const code = (error as { code?: unknown } | null | undefined)?.code;
   return typeof code === 'string' && ENV_RPC_FAILURE_CODES.has(code)
     ? 'env_unavailable'
@@ -759,9 +761,12 @@ export class ImageAnalysisTool extends BaseTool {
       //（不计 invalid turn）；其余异常仍按 error 上报。
       const envKind = envFailureKindOf(error);
       if (envKind) {
-        logger.warn('ImageAnalysisTool · L2 OCR 缺少本机模型（环境层），降级到 L3', {
-          code: (error as { code?: string }).code,
-        });
+        logger.warn(
+          'ImageAnalysisTool · L2 OCR 缺少本机模型（环境层），降级到 L3',
+          {
+            code: (error as { code?: string }).code,
+          }
+        );
       } else {
         await handleError(error, {
           module: 'tools:imageAnalysis',
@@ -838,9 +843,12 @@ export class ImageAnalysisTool extends BaseTool {
     } catch (error) {
       const envKind = envFailureKindOf(error);
       if (envKind) {
-        logger.warn('ImageAnalysisTool · L2 目标检测缺少本机模型（环境层），降级到 L3', {
-          code: (error as { code?: string }).code,
-        });
+        logger.warn(
+          'ImageAnalysisTool · L2 目标检测缺少本机模型（环境层），降级到 L3',
+          {
+            code: (error as { code?: string }).code,
+          }
+        );
       } else {
         await handleError(error, {
           module: 'tools:imageAnalysis',

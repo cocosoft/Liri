@@ -188,3 +188,72 @@ describe('R6：extractEarliestBatch 切批不破配对', () => {
     expect(rest).toEqual([tail]);
   });
 });
+
+/**
+ * 2026-11-28（真机 `session_mwykbdjuff65658510`）：后台压缩直传 `session.messages`，
+ * 工具声明在 `metadata.tool_calls`、结果 id 在 `metadata.toolCallId`。原实现只读顶层字段
+ * ⇒ 兜底收敛"看不见配对"⇒ 全量放行，由 transport 逐条剥离
+ *（`stripped_orphan_tool_results count=30/47`），摘要模型看不到工具输出。
+ */
+describe('2026-11-28：内部消息形态（metadata 承载工具字段）同样收敛', () => {
+  /** 内部形态的 assistant 声明 */
+  function internalAssistant(ids: string[]): ChatMessage {
+    return {
+      role: 'assistant',
+      content: '',
+      metadata: {
+        tool_calls: ids.map((id) => ({
+          id,
+          type: 'function',
+          function: { name: 'grep', arguments: '{}' },
+        })),
+      },
+    } as unknown as ChatMessage;
+  }
+
+  /** 内部形态的工具结果（`metadata.toolCallId`） */
+  function internalToolResult(id: string): ChatMessage {
+    return {
+      role: 'tool',
+      content: [{ type: 'tool_result', value: `r-${id}`, toolCallId: id }],
+      metadata: { toolCallId: id },
+    } as unknown as ChatMessage;
+  }
+
+  test('声明 + 结果（metadata 形态）⇒ 配对完整、一条不丢', () => {
+    const messages = [
+      userMsg('问'),
+      internalAssistant(['c1', 'c2']),
+      internalToolResult('c1'),
+      internalToolResult('c2'),
+      userMsg('压缩指令'),
+    ];
+    expect(unpairedToolCallIds(messages).size).toBe(0);
+
+    const out = sanitizeToolCallPairs(messages);
+    expect(out.filter((m) => m.role === 'tool')).toHaveLength(2);
+    expect(out).toHaveLength(messages.length);
+  });
+
+  test('切批落在工具结果中间 ⇒ 前导孤立结果被丢弃（不再漏到 transport）', () => {
+    const out = sanitizeToolCallPairs([
+      internalToolResult('c9'),
+      internalToolResult('c10'),
+      userMsg('压缩指令'),
+    ]);
+    expect(out.map((m) => m.role)).toEqual(['user']);
+  });
+
+  test('切批只拿到部分结果 ⇒ 声明按已配对的子集收窄', () => {
+    const out = sanitizeToolCallPairs([
+      internalAssistant(['c1', 'c2']),
+      internalToolResult('c2'),
+      userMsg('压缩指令'),
+    ]);
+    const calls = (out[0] as unknown as Record<string, unknown>).tool_calls as
+      | Array<{ id?: string }>
+      | undefined;
+    expect(calls?.map((c) => c.id)).toEqual(['c2']);
+    expect(unpairedToolCallIds(out).size).toBe(0);
+  });
+});

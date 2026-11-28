@@ -14,19 +14,11 @@ import type { ChatMessage } from '@modules/ai';
 export function collectToolCallIds(messages: ChatMessage[]): Set<string> {
   const ids = new Set<string>();
   for (const msg of messages) {
-    const tcId = (msg as unknown as Record<string, unknown>).tool_call_id as
-      | string
-      | undefined;
-    if (tcId) ids.add(tcId);
-    // 也收集 assistant 消息中的 tool_calls 数组
-    const toolCalls = (msg as unknown as Record<string, unknown>).tool_calls as
-      | Array<{ id?: string }>
-      | undefined;
-    if (toolCalls) {
-      for (const tc of toolCalls) {
-        if (tc.id) ids.add(tc.id);
-      }
-    }
+    // 2026-11-28：与 `declaredToolCallIds` / `resultToolCallId` 同口径 ——
+    // 兼容内部消息形态（`metadata.tool_calls` / `metadata.toolCallId`）。
+    for (const id of declaredToolCallIds(msg)) ids.add(id);
+    const rid = resultToolCallId(msg);
+    if (rid) ids.add(rid);
   }
   return ids;
 }
@@ -37,8 +29,7 @@ export function collectToolCallIds(messages: ChatMessage[]): Set<string> {
 export function collectToolResultIds(messages: ChatMessage[]): Set<string> {
   const ids = new Set<string>();
   for (const msg of messages) {
-    const resultCallId = (msg as unknown as Record<string, unknown>)
-      .tool_call_id as string | undefined;
+    const resultCallId = resultToolCallId(msg);
     if (resultCallId) ids.add(resultCallId);
   }
   return ids;
@@ -119,9 +110,18 @@ export function ensureTrailingUserMessage(
  *   ② `sanitizeToolCallPairs`：发请求前**兜底收敛**（保协议，任何切片都安全）。
  * =================================================================== */
 
-/** 单条消息声明的 tool_call id（非 assistant / 无 tool_calls ⇒ 空数组） */
+/**
+ * 单条消息声明的 tool_call id（非 assistant / 无 tool_calls ⇒ 空数组）。
+ *
+ * 2026-11-28（真机 `session_mwykbdjuff65658510`）：同时识别**内部消息形态** ——
+ * 后台压缩直传 `session.messages`，声明落在 `metadata.tool_calls`（非顶层）。原实现
+ * 只读顶层 ⇒ `sanitizeToolCallPairs` 对内部形态"看不见声明也看不见结果" ⇒ 全量放行，
+ * 由 transport 逐条剥离（`stripped_orphan_tool_results count=30/47`）。
+ */
 function declaredToolCallIds(msg: ChatMessage): string[] {
-  const toolCalls = (msg as unknown as Record<string, unknown>).tool_calls as
+  const raw = msg as unknown as Record<string, unknown>;
+  const meta = raw.metadata as Record<string, unknown> | undefined;
+  const toolCalls = (raw.tool_calls ?? meta?.tool_calls) as
     | Array<{ id?: string }>
     | undefined;
   if (!toolCalls || toolCalls.length === 0) return [];
@@ -130,11 +130,20 @@ function declaredToolCallIds(msg: ChatMessage): string[] {
     .filter((id): id is string => typeof id === 'string' && id.length > 0);
 }
 
-/** 单条消息标注的 tool_result 目标 id（tool 消息的 `tool_call_id`） */
+/**
+ * 单条消息标注的 tool_result 目标 id（tool 消息的 `tool_call_id`）。
+ * 2026-11-28：与 `declaredToolCallIds` 同口径，兼容内部形态（驼峰 `toolCallId` /
+ * `metadata.toolCallId` / `metadata.tool_call_id`）。
+ */
 function resultToolCallId(msg: ChatMessage): string | undefined {
-  return (msg as unknown as Record<string, unknown>).tool_call_id as
-    | string
-    | undefined;
+  const raw = msg as unknown as Record<string, unknown>;
+  const meta = raw.metadata as Record<string, unknown> | undefined;
+  const id =
+    raw.tool_call_id ??
+    raw.toolCallId ??
+    meta?.toolCallId ??
+    meta?.tool_call_id;
+  return typeof id === 'string' && id.length > 0 ? id : undefined;
 }
 
 /** 本数组内**声明了但缺失结果**的 tool_call id 集合 */
@@ -213,13 +222,16 @@ export function sanitizeToolCallPairs(messages: ChatMessage[]): ChatMessage[] {
       continue;
     }
 
-    const toolCalls = (msg as unknown as Record<string, unknown>).tool_calls as
+    // 2026-11-28：内部形态的声明在 `metadata.tool_calls` ⇒ 收窄时必须按同一处读取，
+    // 否则会把本可保留的 assistant 误判成"空壳"整条丢弃。
+    const raw = msg as unknown as Record<string, unknown>;
+    const meta = raw.metadata as Record<string, unknown> | undefined;
+    const toolCalls = (raw.tool_calls ?? meta?.tool_calls) as
       | Array<{ id?: string }>
       | undefined;
     const keptCalls = (toolCalls ?? []).filter(
       (tc) => typeof tc.id === 'string' && answered.has(tc.id)
     );
-    const raw = msg as unknown as Record<string, unknown>;
     const content = raw.content;
     const hasContent =
       typeof content === 'string' ? content.trim().length > 0 : content != null;

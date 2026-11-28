@@ -221,6 +221,25 @@ const IMAGE_ARTIFACT_OBJECT =
   /(?:图片|图像|插画|海报|图标|logo|封面|壁纸|头像|表情包|svg|矢量图|示意图|流程图|架构图|思维导图|图表|二维码|png|jpg|jpeg|webp)/i;
 
 /**
+ * 「附带产出」式造图动词（2026-11-28 真机 `session_mwz5kbqt09a7c334dc`）：
+ * 用户说「请据此写一段故事，并**附上图片**」—— 语义是**要求产出一张图**，但句中
+ * 没有「画/生成/绘制」这类动词 ⇒ 旧判据不命中，`image` 类别被裁掉，模型先用
+ * `tool_search` 搜两次（`not-in-task-whitelist`）才拿到生图工具。
+ *
+ * 与 `IMAGE_PRODUCE_VERB` 同口径：必须与 `IMAGE_ARTIFACT_OBJECT` 同现
+ * （`附上一份简历` / `配上背景音乐` 不命中）。
+ */
+const IMAGE_ATTACH_VERB =
+  /(?:附上|附带|附一张|附一幅|附个|配上|配一张|配一幅|配上图|加一张|加一幅|加个图|来一张|来一幅|来张|补一张|补个图|插一张)/;
+
+/**
+ * 自含「产出一张图」语义的复合词（`配图` / `来张图` / `附上图片`），无需再配产物词。
+ * `配图` 前接「这/那/张」时是在**指代既有图**（"这张配图不错"）⇒ 不算产出意图。
+ */
+const IMAGE_ATTACH_COMPOUND =
+  /(?:(?<![这那])(?<!张)配图|配一张图|配上图|附上图片|附一张图|附一幅图|加一张图|加个图|来张图|来一张图|来一幅图)/;
+
+/**
  * P1-1（2026-11-28，真机 `session_mwz477wj251057474e`）：**产出图像产物**的意图判定。
  *
  * 动因：工具面裁剪只按「本轮是否带图」追加 `image` 类别 —— 用户说「你画一张鹈鹕骑自行车的
@@ -228,7 +247,7 @@ const IMAGE_ARTIFACT_OBJECT =
  * 全被裁掉，模型只能 `tool_search` 再自己用 bash 找代理渲染器（该轮 38 次工具调用、15 次失败、
  * 最终 `circuit_breaker`）。
  *
- * 判据（保守）：**造图动词 + 图像产物对象同时命中**才为真。
+ * 判据（保守）：**造图动词（或「附上/配图」式产出词）+ 图像产物对象同时命中**才为真。
  * 刻意不覆盖：
  *  - 只读问句（"这张图里有啥" / "这两幅图呢"）—— 那是识图，由 `hasImages`/图像上下文负责；
  *  - 既有图件的纯修改（"把 logo 挪一下"）—— 无新产物，不因此扩大工具面。
@@ -237,11 +256,18 @@ const IMAGE_ARTIFACT_OBJECT =
  */
 export function hasImageArtifactIntent(text: string): boolean {
   if (!text) return false;
-  if (IMAGE_PRODUCE_VERB.test(text) && IMAGE_ARTIFACT_OBJECT.test(text)) {
+  // 自含"产出一张图"的复合词（`配图` / `来张图` / `附上图片`）—— 无需再单独命中产物词
+  if (IMAGE_ATTACH_COMPOUND.test(text)) {
     return true;
   }
-  // 英文：draw/generate/create … + image/picture/poster/illustration/logo/svg
-  return /\b(?:draw|generate|create|render)\b[\s\S]{0,40}\b(?:image|picture|poster|illustration|logo|svg|icon|avatar)\b/i.test(
-    text
-  );
+  // 英文：draw/generate/create/render … + image/picture/poster/illustration/logo/svg
+  if (
+    /\b(?:draw|generate|create|render)\b[\s\S]{0,40}\b(?:image|picture|poster|illustration|logo|svg|icon|avatar)\b/i.test(
+      text
+    )
+  ) {
+    return true;
+  }
+  if (!IMAGE_ARTIFACT_OBJECT.test(text)) return false;
+  return IMAGE_PRODUCE_VERB.test(text) || IMAGE_ATTACH_VERB.test(text);
 }

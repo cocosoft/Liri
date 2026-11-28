@@ -270,10 +270,16 @@ export class ImageGenerationRouter {
             this.cache.set(currentParams, result);
           }
 
-          logger.info('ImageGenerationRouter · Fallback 成功', {
-            provider: candidate.name,
-            attemptIndex: providers.indexOf(candidate),
-          });
+          // 2026-11-28（真机日志）：首轮 Provider 成功**不是回退** —— 旧实现无论
+          // `attemptIndex` 都打「Fallback 成功」，正常生图日志里每次都出现"回退成功"，
+          // 读日志时容易误判成生图链路在退化。
+          const attemptIndex = providers.indexOf(candidate);
+          logger.info(
+            attemptIndex > 0
+              ? 'ImageGenerationRouter · Fallback 成功'
+              : 'ImageGenerationRouter · 生成成功',
+            { provider: candidate.name, attemptIndex }
+          );
           return {
             result,
             costBreakdown,

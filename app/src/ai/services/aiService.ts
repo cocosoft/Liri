@@ -70,13 +70,25 @@ export class AIServiceImpl implements AIService {
       // provider 返回 400 "missing field tool_call_id"，tier3 摘要永久失败。
       const raw = msg as unknown as {
         toolCallId?: string;
-        metadata?: { toolCallId?: string; tool_call_id?: string };
+        tool_calls?: ChatMessage['tool_calls'];
+        metadata?: {
+          toolCallId?: string;
+          tool_call_id?: string;
+          tool_calls?: ChatMessage['tool_calls'];
+        };
       };
       const toolCallId =
         msg.tool_call_id ||
         raw.toolCallId ||
         raw.metadata?.toolCallId ||
         raw.metadata?.tool_call_id;
+      // 2026-11-28（真机 `session_mwykbdjuff65658510`）：工具**声明**同样要归一化。
+      // 内部消息模型把 `tool_calls` 放在 `metadata.tool_calls`（见 `messagePersistence`
+      // 与 `streamMessageLifecycle` 的映射），本函数此前只透传顶层字段 ⇒ 后台压缩请求里
+      // assistant 的声明全丢、只剩 tool 结果 ⇒ transport 逐条判孤儿剥离
+      //（`stripped_orphan_tool_results count=30/47`），摘要模型看不到任何工具输出。
+      // 与上面 toolCallId 的归一化同源同口径（同一处内部格式 → provider 格式的边界）。
+      const toolCalls = msg.tool_calls ?? raw.metadata?.tool_calls;
       // CONTENT-NORMALIZE（2026-08-30）：后台压缩等内部消息路径（session.messages）的
       // tool 消息 content 是 ContentBlock[]（含 {type:'tool_result', value, toolCallId}），
       // 原样透传给 OpenAI 兼容 API 会 400 "unknown variant 'tool_result'"。
@@ -90,7 +102,7 @@ export class AIServiceImpl implements AIService {
       return {
         role: msg.role as ChatMessage['role'],
         content,
-        tool_calls: msg.tool_calls,
+        tool_calls: toolCalls,
         tool_call_id: toolCallId,
       };
     });

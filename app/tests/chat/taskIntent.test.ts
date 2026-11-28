@@ -147,4 +147,22 @@ describe('hasImageArtifactIntent — 造图意图（2026-11-28）', () => {
     expect(hasImageArtifactIntent('生成一个登录页面')).toBe(false);
     expect(hasImageArtifactIntent('')).toBe(false);
   });
+
+  /**
+   * P1-1b（2026-11-28，真机 `session_mwz5kbqt09a7c334dc`）：用户「请据此写一段故事，
+   * 并附上图片」不含「画/生成/绘制」等造图动词 ⇒ 旧判据不命中，`image` 类别被裁掉，
+   * 模型只能先用 `tool_search` 搜两次（`not-in-task-whitelist`）才拿到 `image_generate`。
+   */
+  it('「附上 / 配图 / 来张图」式产出要求 ⇒ 命中', () => {
+    expect(hasImageArtifactIntent('请据此写一段故事，并附上图片。')).toBe(true);
+    expect(hasImageArtifactIntent('写一段文案，再配一张图')).toBe(true);
+    expect(hasImageArtifactIntent('给我来张图看看')).toBe(true);
+    expect(hasImageArtifactIntent('这个页面加一张图吧')).toBe(true);
+  });
+
+  it('「附上 / 配上」但产物不是图 ⇒ 不命中', () => {
+    expect(hasImageArtifactIntent('附上一份简历')).toBe(false);
+    expect(hasImageArtifactIntent('配上背景音乐')).toBe(false);
+    expect(hasImageArtifactIntent('这张配图不错')).toBe(false);
+  });
 });

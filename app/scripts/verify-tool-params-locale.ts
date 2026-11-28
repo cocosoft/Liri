@@ -19,6 +19,14 @@ import { join } from 'node:path';
 
 import { ConfigManager, setConfigManagerForTest } from '@openliri/infra/config';
 
+// 2026-11-28：工具池构建会对变体矩阵标志（如 CODE_MODE）求值，必须在**入口最早期**
+// 注入变体层，否则 `getAllBuiltinToolLoaders()` 直接抛 `CORE_VARIANT_FLAGS_NOT_INITIALIZED`
+// —— 本脚本此前正是死在这里（修好配置守卫后的第二处漂移）。
+import { setBuildVariantFlags } from '@openliri/kernel';
+import { BUILD_VARIANT_FLAGS } from '../src/bootstrap/generatedVariantFlags.js';
+
+setBuildVariantFlags(BUILD_VARIANT_FLAGS);
+
 import { resolveConfiguredLanguage } from '@openliri/infra/system/i18n/languageProfiles';
 import { ToolRegistry } from '../src/tools/ToolRegistry';
 import { ToolFactory } from '../src/tools/ToolFactory';
@@ -46,6 +54,11 @@ function main(): number {
   const dir = mkdtempSync(join(tmpdir(), 'pyapp-c3b-locale-'));
   try {
     const manager = new ConfigManager(join(dir, 'config.json'));
+    // 2026-11-28：`assertConfigWritable`（2026-11-07 的 fail-closed 守卫）要求先
+    // `enableConfigs()`，否则任何写入都被拒 —— 本脚本此前**每次运行都崩在这里**，
+    // 导致这项「参数译文生效」取证长期空转（本地取证脚本，不在 CI，静默无人发现）。
+    // 实例用的是 mkdtemp 隔离路径，启用后预加载的也只是该隔离文件，不触碰用户配置。
+    manager.enableConfigs();
     manager.setConfigValue('language', 'en-US');
     setConfigManagerForTest(manager);
 
@@ -120,9 +133,14 @@ function main(): number {
     const toolLeaks = scan.descriptions.filter(
       (item) => item.scope === 'tool' && hasUntranslatedCjk(item.text)
     );
+    // 输出契约描述：内部校验用，不下发模型 ⇒ 只报数，不计入失败（见 `DescriptionHit`）
+    const outputLeaks = scan.descriptions.filter(
+      (item) => item.scope === 'output' && hasUntranslatedCjk(item.text)
+    );
     console.log(
       `\n=== 全 schema description 扫描：${scan.total} 处 ===` +
-        `（参数级中文残留 ${paramLeaks.length} / 工具级中文 ${toolLeaks.length}）`
+        `（参数级中文残留 ${paramLeaks.length} / 工具级中文 ${toolLeaks.length}` +
+        ` / 输出契约中文 ${outputLeaks.length}【内部用，不计失败】）`
     );
     if (paramLeaks.length > 0) {
       console.error(
@@ -167,8 +185,12 @@ function hasUntranslatedCjk(text: string): boolean {
 interface DescriptionHit {
   /** `<tool>.<path>`；工具级为 `<tool>.description` */
   path: string;
-  /** `tool` = 工具级描述（T2）；`param` = 参数级描述（C-3b） */
-  scope: 'tool' | 'param';
+  /**
+   * `tool` = 工具级描述（T2）；`param` = **输入**参数描述（C-3b）；
+   * `output` = 输出契约描述（内部校验用，**不下发模型** —— 2026-11-28 核实：
+   * `app/src/ai` 全文无 `output_schema` 引用，AI 层不序列化它）。
+   */
+  scope: 'tool' | 'param' | 'output';
   text: string;
 }
 
@@ -196,7 +218,14 @@ function scanDescriptions(
         const fullPath = `${path}.${key}`;
         descriptions.push({
           path: fullPath,
-          scope: /^[^.]+\.description$/.test(fullPath) ? 'tool' : 'param',
+          // 2026-11-28：`output_schema` 必须与输入参数分开统计 —— 它是内部出参契约，
+          // 不进模型 tools schema（`app/src/ai` 零引用）；此前被归为 `param`，
+          // 使 612 处「输出描述未译」被当成 i18n 缺口，脚本一跑就红、长期没人看。
+          scope: /^[^.]+\.description$/.test(fullPath)
+            ? 'tool'
+            : fullPath.includes('.output_schema')
+              ? 'output'
+              : 'param',
           text: value,
         });
         continue;

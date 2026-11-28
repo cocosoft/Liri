@@ -29,6 +29,12 @@ import { patternFeatureFlag, selectPattern } from '@modules/query/patterns';
 import { instantiatePattern, resolveFeatureGate } from '@modules/query';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { LiriEvent, LiriEventData } from '@modules/session/types/events';
+// 2026-11-28：决策轨迹三条链路（事件 / 审计 / 卡片快照）的类型单一来源
+import type {
+  PdcaLiveCore,
+  PdcaLiveData,
+  PdcaLiveEventType,
+} from '../../tasks/PdcaLiveEvents';
 
 import { hasResearchIntent } from '../taskIntent';
 import { shouldEscalateLongTask } from '../longTaskEscalation';
@@ -149,6 +155,51 @@ export interface PdcaLaunchDeps {
     text: string,
     metadata?: Record<string, unknown>
   ) => void;
+  /**
+   * 决策轨迹①：PDCA 实时事件广播（默认懒加载 `PdcaLiveEvents`；测试可注入）。
+   * 失败不得影响另外两条链路（审计 / 聊天卡片）。
+   */
+  emitDecisionEvent?: (
+    type: PdcaLiveEventType,
+    core: PdcaLiveCore,
+    data: PdcaLiveData
+  ) => Promise<void>;
+  /**
+   * 决策轨迹②：审计库写入（默认懒加载 `sharedTaskStore`；测试可注入）。
+   * 失败不得影响聊天卡片快照（2026-11-28：此前二者串在一条 `.then` 链上）。
+   */
+  writeDecisionAudit?: (entry: {
+    taskId: string;
+    eventType: string;
+    oldStatus: string | null;
+    newStatus: string;
+    detail?: string | null;
+    timestamp: number;
+  }) => Promise<void>;
+}
+
+/** 决策轨迹①的默认实现：懒加载实时事件通道（失败由调用方留痕） */
+async function defaultEmitDecisionEvent(
+  type: PdcaLiveEventType,
+  core: PdcaLiveCore,
+  data: PdcaLiveData
+): Promise<void> {
+  const { emitPdcaLiveEvent } = await import('../../tasks/PdcaLiveEvents');
+  await emitPdcaLiveEvent(type, core, data);
+}
+
+/** 决策轨迹②的默认实现：懒加载审计库（`SqliteTaskStore` 单例） */
+async function defaultWriteDecisionAudit(entry: {
+  taskId: string;
+  eventType: string;
+  oldStatus: string | null;
+  newStatus: string;
+  detail?: string | null;
+  timestamp: number;
+}): Promise<void> {
+  const mod = await import('../../tasks/db/sharedTaskStore');
+  const store = await mod.getSharedSqliteTaskStore();
+  await store.writeAuditLogWithDetail(entry);
 }
 
 export class PdcaLaunchCoordinator {
@@ -458,35 +509,15 @@ export class PdcaLaunchCoordinator {
         projectId,
         messagePreview: (lastUserContent || '').slice(0, 50),
       });
-      import('../../tasks/PdcaLiveEvents')
-        .then((m) => {
-          void m.emitPdcaLiveEvent(
-            'pdca:auto_launched',
-            { sessionId: session.id, projectId },
-            { decision: 'research', message: '研究模式：候选生成 + 对抗评审' }
-          );
-          return m.emitPdcaLiveEvent(
-            'pdca:decision',
-            { sessionId: session.id, projectId },
-            {
-              decision: 'research',
-              reasons: ['research-intent', 'competitive-feature'],
-              message: '研究型任务命中研究模式（候选生成 + 对抗评审）',
-            }
-          );
-        })
-        .then(() =>
-          this.persistPdcaSnapshot(
-            session,
-            projectId,
-            'research',
-            '研究模式：候选生成 + 对抗评审',
-            ['research-intent', 'competitive-feature']
-          )
-        )
-        .catch(() => {
-          // @ignore-catch — 研究分流 trace 失败不影响编排（CS03）
-        });
+      this._traceDecision({
+        session,
+        projectId,
+        decision: 'research',
+        message: '研究模式：候选生成 + 对抗评审',
+        reasons: ['research-intent', 'competitive-feature'],
+        // 研究分流的决策轨迹不写审计库（与改动前逐字一致）
+        writeAudit: false,
+      });
       launcher!
         .launchResearch(projectId, description, session.id, lastUserContent)
         .catch(() => {
@@ -520,56 +551,14 @@ export class PdcaLaunchCoordinator {
       : usePlanDriven
         ? '简单任务走 PlanDrivenLoop 快速路径'
         : '复杂/危险任务走经典 PDCA 阶段链';
-    import('../../tasks/PdcaLiveEvents')
-      .then((m) => {
-        // B1（2026-09-06，P0-2）：自动启动信号——供前端 banner/执行模式徽标消费
-        void m.emitPdcaLiveEvent(
-          'pdca:auto_launched',
-          { sessionId: session.id, projectId },
-          {
-            decision: usePlanDriven ? 'pdl' : 'stage-chain',
-            message: decisionMsg,
-          }
-        );
-        return m.emitPdcaLiveEvent(
-          'pdca:decision',
-          { sessionId: session.id, projectId },
-          {
-            decision: usePlanDriven ? 'pdl' : 'stage-chain',
-            reasons: decisionReasons,
-            message: decisionMsg,
-          }
-        );
-      })
-      // 原为 `new SqliteTaskStore()` 但从未 `init()` ⇒ 审计一直抛错（台账 D-100）
-      .then(() =>
-        import('../../tasks/db/sharedTaskStore').then(async (mod) =>
-          (await mod.getSharedSqliteTaskStore()).writeAuditLogWithDetail({
-            taskId: `session:${session.id}`,
-            eventType: 'pdca_decision',
-            oldStatus: null,
-            newStatus: usePlanDriven ? 'pdl' : 'stage-chain',
-            detail: JSON.stringify({
-              reasons: decisionReasons,
-              message: decisionMsg,
-              projectId: projectId ?? null,
-            }),
-            timestamp: Date.now(),
-          })
-        )
-      )
-      .then(() =>
-        this.persistPdcaSnapshot(
-          session,
-          projectId,
-          usePlanDriven ? 'pdl' : 'stage-chain',
-          decisionMsg,
-          decisionReasons
-        )
-      )
-      .catch(() => {
-        // @ignore-catch — 决策 trace 失败不影响分流（CS03）
-      });
+    this._traceDecision({
+      session,
+      projectId,
+      decision: usePlanDriven ? 'pdl' : 'stage-chain',
+      message: decisionMsg,
+      reasons: decisionReasons,
+      writeAudit: true,
+    });
     launcher!
       .launch(
         projectId,
@@ -611,7 +600,94 @@ export class PdcaLaunchCoordinator {
   }
 
   /**
+   * 分流决策轨迹：**三条互不阻塞的落盘**（2026-11-28，台账「自动升级未写 pdca_workflow 快照」）。
+   *
+   * 此前三条链路被串成一条 `.then` 链（事件广播 → 审计库 → 聊天卡片快照），且末尾 `.catch`
+   * 全静默：审计库（SQLite）写失败就**整条链中止** ⇒ 用户可见的 `pdca_workflow` 卡片静默丢失，
+   * 而同一链前面的徽标/事件看起来一切正常 —— 与真机「升级成功但消息流没有卡片」的表现一致
+   * （原现场日志已轮转，无法逐条复验；此处按**读码可证的耦合**解耦，并给每条链路留痕）。
+   *
+   * 现在三条各自独立发起、各自 `catch`：
+   * ① 实时事件（前端 banner/徽标）失败 ⇒ `debug`；
+   * ② 审计库失败 ⇒ `warn`（不影响卡片）；
+   * ③ 聊天卡片快照失败 ⇒ `warn`（带上原因，不再无声）。
+   */
+  private _traceDecision(input: {
+    session: ChatSession;
+    projectId?: string;
+    decision: 'pdl' | 'stage-chain' | 'research';
+    message: string;
+    reasons?: string[];
+    /** 是否同时写审计库（研究分支不写，与改动前一致） */
+    writeAudit: boolean;
+  }): void {
+    const { session, projectId, decision, message, reasons } = input;
+    const core: PdcaLiveCore = {
+      sessionId: session.id,
+      ...(projectId ? { projectId } : {}),
+    };
+
+    // ① 实时事件：自动启动信号 + 决策轨迹（供前端 banner/徽标）
+    const emitEvent = this.deps.emitDecisionEvent ?? defaultEmitDecisionEvent;
+    void emitEvent('pdca:auto_launched', core, { decision, message })
+      .then(() =>
+        emitEvent('pdca:decision', core, {
+          decision,
+          message,
+          ...(reasons ? { reasons } : {}),
+        })
+      )
+      .catch((e: unknown) => {
+        // @ignore-catch — 实时事件属可观测性旁路，不影响分流与卡片
+        logger.debug('pdca:decision_event_failed', {
+          sessionId: session.id,
+          error: String(e),
+        });
+      });
+
+    // ② 审计库（原 `new SqliteTaskStore()` 但从未 `init()` ⇒ 审计一直抛错，台账 D-100）
+    if (input.writeAudit) {
+      const writeAudit =
+        this.deps.writeDecisionAudit ?? defaultWriteDecisionAudit;
+      void writeAudit({
+        taskId: `session:${session.id}`,
+        eventType: 'pdca_decision',
+        oldStatus: null,
+        newStatus: decision,
+        detail: JSON.stringify({
+          reasons: reasons ?? [],
+          message,
+          projectId: projectId ?? null,
+        }),
+        timestamp: Date.now(),
+      }).catch((e: unknown) => {
+        logger.warn('pdca:decision 审计写入失败（不影响聊天卡片）', {
+          sessionId: session.id,
+          error: String(e),
+        });
+      });
+    }
+
+    // ③ 聊天卡片快照（用户可见）：独立链路，失败必须留痕
+    void this.persistPdcaSnapshot(
+      session,
+      projectId,
+      decision,
+      message,
+      reasons
+    ).catch((e: unknown) => {
+      logger.warn('pdca_workflow 快照写入失败（消息流将无卡片）', {
+        sessionId: session.id,
+        error: String(e),
+      });
+    });
+  }
+
+  /**
    * P2-A（2026-09-17）：PDCA 自动启动 → 聊天正文内嵌卡片（只存启动快照）。
+   *
+   * 2026-11-28：`appendStreamEvent` **不抛错**，失败以 `{ok:false, reason}` 返回 ⇒
+   * 必须显式检查并留痕，否则卡片丢失仍然无声。
    */
   private async persistPdcaSnapshot(
     session: ChatSession,
@@ -620,7 +696,7 @@ export class PdcaLaunchCoordinator {
     message: string,
     reasons?: string[]
   ): Promise<void> {
-    await this.deps.appendStreamEvent(session.id, {
+    const result = await this.deps.appendStreamEvent(session.id, {
       type: 'assistant/pdca_workflow',
       seq: 0,
       time: Date.now(),
@@ -634,6 +710,18 @@ export class PdcaLaunchCoordinator {
         ...(reasons ? { reasons } : {}),
       },
     } as LiriEvent);
+    // 事件层拒绝（未知类型 / 非法载荷 / 写盘失败）以返回值表达，不抛错 ⇒ 必须检查
+    const refused =
+      typeof result === 'object' &&
+      result !== null &&
+      (result as { ok?: unknown }).ok === false;
+    if (refused) {
+      logger.warn('pdca_workflow 快照被事件层拒绝（消息流将无卡片）', {
+        sessionId: session.id,
+        decision,
+        reason: (result as { reason?: unknown }).reason ?? 'no-reason',
+      });
+    }
   }
 
   /**

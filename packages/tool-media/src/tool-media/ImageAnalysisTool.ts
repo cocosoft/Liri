@@ -220,6 +220,28 @@ async function l2Analyze<T>(
 }
 
 /**
+ * Python worker 的**环境层**失败码（2026-11-28，真机 `session_mwz477wj251057474e`）。
+ *
+ * 现场：`analyze.l2.ocr` 因本机没装 `easyocr` 抛错（worker 侧 `code=MODEL_NOT_INSTALLED`），
+ * 降级 L3 也失败后按通用失败返回 ⇒ 计入 `consecutiveInvalidTurns`（模型没错，是本机缺依赖）。
+ * 这里只认**结构化 code**（CS02：不解析错误文案），由 `WorkerGuard.PythonWorkerRpcError` 携带。
+ */
+const ENV_RPC_FAILURE_CODES: ReadonlySet<string> = new Set([
+  'MODEL_NOT_INSTALLED',
+  // worker 进程不可用 / 未就绪（同属环境事实；本次未观测到，纳入以防同类误判）
+  'PYTHON_UNAVAILABLE',
+  'WORKER_NOT_READY',
+]);
+
+/** 从（鸭子类型的）RPC 错误取 env 失败分型；非环境类 ⇒ `undefined`（导出供同类工具/单测复用） */
+export function envFailureKindOf(error: unknown): 'env_unavailable' | undefined {
+  const code = (error as { code?: unknown } | null | undefined)?.code;
+  return typeof code === 'string' && ENV_RPC_FAILURE_CODES.has(code)
+    ? 'env_unavailable'
+    : undefined;
+}
+
+/**
  * 获取 L2 分析端口
  *
  * · `TOOL_SIDECAR_MEDIA` 关（默认）⇒ 既有 `WorkerGuard` 路径（与本改动前**逐字等价**，零行为变更）；
@@ -733,10 +755,19 @@ export class ImageAnalysisTool extends BaseTool {
         output: response.text,
       };
     } catch (error) {
-      await handleError(error, {
-        module: 'tools:imageAnalysis',
-        action: 'analyze.l2.ocr',
-      });
+      // 2026-11-28：本机缺可选模型属**环境层**事实 ⇒ warn 留痕 + 失败带 env_unavailable
+      //（不计 invalid turn）；其余异常仍按 error 上报。
+      const envKind = envFailureKindOf(error);
+      if (envKind) {
+        logger.warn('ImageAnalysisTool · L2 OCR 缺少本机模型（环境层），降级到 L3', {
+          code: (error as { code?: string }).code,
+        });
+      } else {
+        await handleError(error, {
+          module: 'tools:imageAnalysis',
+          action: 'analyze.l2.ocr',
+        });
+      }
 
       // 降级到 L3 云端分析（使用 OCR 独立任务路由）
       logger.warn('ImageAnalysisTool · L2 OCR 失败，降级到 L3');
@@ -746,7 +777,11 @@ export class ImageAnalysisTool extends BaseTool {
         RouteKey.IMAGE_OCR
       );
       if (!visionResult.success) {
-        return { success: false, error: visionResult.error };
+        return {
+          success: false,
+          error: visionResult.error,
+          ...(envKind ? { failureKind: envKind } : {}),
+        };
       }
       return {
         success: true,
@@ -801,16 +836,26 @@ export class ImageAnalysisTool extends BaseTool {
         output: lines.join('\n'),
       };
     } catch (error) {
-      await handleError(error, {
-        module: 'tools:imageAnalysis',
-        action: 'analyze.l2.yolo',
-      });
+      const envKind = envFailureKindOf(error);
+      if (envKind) {
+        logger.warn('ImageAnalysisTool · L2 目标检测缺少本机模型（环境层），降级到 L3', {
+          code: (error as { code?: string }).code,
+        });
+      } else {
+        await handleError(error, {
+          module: 'tools:imageAnalysis',
+          action: 'analyze.l2.yolo',
+        });
+      }
 
       logger.warn('ImageAnalysisTool · L2 目标检测失败，降级到 L3');
-      return this.handleVision({
+      const visionResult = await this.handleVision({
         ...params,
         prompt: '请列出这张图片中包含的所有物体。',
       });
+      return envKind && !visionResult.success
+        ? { ...visionResult, failureKind: envKind }
+        : visionResult;
     }
   }
 
@@ -869,14 +914,22 @@ export class ImageAnalysisTool extends BaseTool {
 
       return { success: true, data: response, output };
     } catch (error) {
-      await handleError(error, {
-        module: 'tools:imageAnalysis',
-        action: 'analyze.l2.clip',
-      });
+      const envKind = envFailureKindOf(error);
+      if (envKind) {
+        logger.warn('ImageAnalysisTool · L2 相似度缺少本机模型（环境层）', {
+          code: (error as { code?: string }).code,
+        });
+      } else {
+        await handleError(error, {
+          module: 'tools:imageAnalysis',
+          action: 'analyze.l2.clip',
+        });
+      }
       const errorMsg = error instanceof Error ? error.message : String(error);
       return {
         success: false,
         error: `Similarity analysis failed: ${errorMsg}`,
+        ...(envKind ? { failureKind: envKind } : {}),
       };
     }
   }

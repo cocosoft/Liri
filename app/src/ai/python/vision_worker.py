@@ -38,6 +38,14 @@ def register_model(name, check_fn, install_hint):
     MODELS[name] = {"check": check_fn, "install_hint": install_hint, "loaded": False}
 
 
+class ModelNotInstalledError(RuntimeError):
+    """可选模型未安装（**环境层**事实，不是模型/工具错误）。
+
+    2026-11-28：单独成类 ⇒ 响应带 `code='MODEL_NOT_INSTALLED'`，TS 侧据此把失败归为
+    `env_unavailable`（不计入 invalid turn / circuit_breaker），而不是通用 `MODEL_ERROR`。
+    """
+
+
 def ensure_model(name):
     """确保模型已导入，失败则抛出"""
     model = MODELS.get(name)
@@ -49,7 +57,7 @@ def ensure_model(name):
         model["check"]()
         model["loaded"] = True
     except ImportError as e:
-        raise RuntimeError(
+        raise ModelNotInstalledError(
             f"Model '{name}' is not installed. Install it: {model['install_hint']}"
         ) from e
 
@@ -652,6 +660,13 @@ def process_request(msg):
                 "error": {"code": result["code"], "message": result["message"]},
             }
         return {"id": req_id, "success": True, "result": result}
+    except ModelNotInstalledError as e:
+        # 环境层事实：本机没装该可选模型（TS 侧据此判 env_unavailable，不计 invalid turn）
+        return {
+            "id": req_id,
+            "success": False,
+            "error": {"code": "MODEL_NOT_INSTALLED", "message": str(e)},
+        }
     except RuntimeError as e:
         return {
             "id": req_id,

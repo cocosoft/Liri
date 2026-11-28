@@ -29,7 +29,7 @@
 | 面 | 总数 | core | community |
 |---|---:|---:|---:|
 | 消息通道 | 27 | 26 | 0 |
-| 内建工具 | 71 | 48 | 23 |
+| 内建工具 | 71 | 49 | 22 |
 
 ## 消息通道
 
@@ -93,7 +93,7 @@
 | `glob` | core | `app/tests/tools/GlobTool/GlobTool-braces.test.ts`（测试文件名） | read · pass |
 | `grep` | core | `app/tests/commands/grepArgsParity.test.ts`（测试文件名） | read · pass |
 | `image` | core | `app/tests/chat/imagePathGuard.test.ts`（测试文件名） | write · pass |
-| `image_analysis` | community | —（无专属测试） | read · pass |
+| `image_analysis` | core | `app/tests/tools/imageAnalysisEnvFailure.test.ts`（测试文件名） | read · pass |
 | `image_display` | community | —（无专属测试） | read · pass |
 | `image_generate` | community | —（无专属测试） | write · pass |
 | `image_svg_generate` | community | —（无专属测试） | write · pass |

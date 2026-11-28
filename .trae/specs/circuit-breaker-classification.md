@@ -86,6 +86,7 @@ export interface ToolResultEntry {
 | `bashSecurityGate` / PowerShell 允许列表 / PathGuard 跳过 | `safety_blocked` | 各 gate 返回结构化 `reason`（已有 `security_analyzer_deny` 等枚举） |
 | 沙箱/依赖探测失败（如 `code_run` failClosed） | `env_unavailable` | 现有 `status:'security-rejected'` 分支 |
 | `bash` **依赖安装失败**（npm/pnpm/yarn/bun/pip/… `install`）或**可执行文件探测无此命令**（`where`/`which`/`command -v` 非零退出）**或模块导入探测失败**（`python -c "import …"` / `node -e "require(…)"` / `test -e/-f/-d`） | `env_unavailable` | `app/src/tools/bash/exitSemantics.ts#isEnvironmentProbeFailure`：按**命令族 + 非零退出**判定，不解析错误文案（CS02）。2026-11-27 真机 `session_mwz477wj251057474e`：为把已写好的 SVG 转 PNG，连续 `npm install` → `where magick…` → `pip install` 失败被计 invalid，3 轮即 `circuit_breaker`。**2026-11-28 补模块导入探测**（同一会话 15:31Z 段：`python -c "import cairosvg; print(…)"`、`import playwright` 等仍被计 invalid，`reActLoop:all-tools-failed` iteration 8/10/13/15/16/18）—— 该形态体内带 `;`，**不能**按 `;` 切段，改为对「单条或 `&` 串联的纯探测命令」整条判形；`dir /b` / `ls <path>` **刻意不收**（可能是"产物是否写出"的核对，失败属真实任务未达成） |
+| **Python worker 可选模型未安装 / worker 不可用**（`vision_worker.py` 的 `MODEL_NOT_INSTALLED`、`PYTHON_UNAVAILABLE`、`WORKER_NOT_READY`） | `env_unavailable` | worker 响应带**结构化 `code`**；`WorkerGuard.requestResult` 抛 `PythonWorkerRpcError` 保留 `code`，`ImageAnalysisTool#envFailureKindOf` **只认 code**（CS02，不解析文案）。2026-11-28 真机同一会话：`analyze.l2.ocr` 缺 `easyocr`（15:15Z / 15:17Z）与 `analyze.l2.yolo` 缺 `ultralytics` 被记 error 且计 invalid |
 | 工具 execute 抛错 | `tool_error` | 兜底 |
 
 > 关键：**不解析 `error` 文本**。文本只用于展示，分类走类型。

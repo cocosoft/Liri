@@ -15,6 +15,23 @@ import type { JsonRpcBridge } from './JsonRpcBridge';
 
 const logger = getLogger('ai:python:guard');
 
+/**
+ * Python worker JSON-RPC 失败时抛出的错误：**保留结构化 `code`**。
+ *
+ * 2026-11-28（真机 `session_mwz477wj251057474e`）：`analyze.l2.ocr` 因本机没装 `easyocr`
+ * 失败（`MODEL_NOT_INSTALLED`），此前被降级成通用 `Error` 文案 ⇒ 上层只能按"工具失败"计
+ * invalid turn。保留 `code` 后，调用方可按**结构化字段**判 env 类失败（CS02：不解析文案）。
+ */
+export class PythonWorkerRpcError extends Error {
+  readonly code?: string;
+
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = 'PythonWorkerRpcError';
+    this.code = code;
+  }
+}
+
 /** 看护配置 */
 export interface WorkerGuardConfig {
   /** 连续崩溃最大重启次数，默认 5 */
@@ -137,12 +154,15 @@ export class WorkerGuard {
     const res = await this.request<{
       success: boolean;
       result?: T;
-      error?: { message?: string };
+      error?: { code?: string; message?: string };
       errorCode?: string;
     }>(method, params, timeoutMs);
     if (!res.success) {
-      throw new Error(
-        `RPC ${method} failed: ${res.error?.message ?? res.errorCode ?? 'unknown'}`
+      // 2026-11-28：保留 Python 侧的结构化 `code`（如 `MODEL_NOT_INSTALLED`）——
+      // 上层据此把"本机缺可选模型"归为 env 类失败（CS02：不解析文案）。
+      throw new PythonWorkerRpcError(
+        `RPC ${method} failed: ${res.error?.message ?? res.errorCode ?? 'unknown'}`,
+        res.error?.code ?? res.errorCode
       );
     }
     return res.result as T;

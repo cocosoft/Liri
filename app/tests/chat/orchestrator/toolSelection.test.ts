@@ -118,6 +118,44 @@ describe('P2-1i S3 本轮工具集选择 · 任务类型判定 + 裁剪', () => 
     );
   });
 
+  /**
+   * 2026-11-28（真机 `session_mwz5kbqt09a7c334dc`）：`image_generate` 属 `image` 类别、
+   * 又不在 `DEFAULT_DISCLOSURE_TOOLS` ⇒ 用户说「并附上图片」时两道收窄同时生效，
+   * 模型只能先 `tool_search{select:image_generate}`（该轮实测两次）才拿到生图工具。
+   *
+   * 本用例锁死**用户可见结果**：造图意图 ⇒ `image_generate` 直接出现在本轮工具面。
+   */
+  it('「附上图片」式造图 ⇒ `image_generate` 直接下发（无需 tool_search）', () => {
+    const tools = [
+      def('file_read'),
+      def('bash'),
+      def('image_generate'),
+      def('image_svg_generate'),
+    ];
+    const before = run({
+      tools,
+      hasImages: false,
+      lastUserText: '这张图里有啥？',
+    });
+    expect(before.tools.map((t) => t.function?.name)).not.toContain(
+      'image_generate'
+    );
+    expect(before.removedNames).toContain('image_generate');
+
+    const after = run({
+      tools,
+      hasImages: false,
+      lastUserText: '请据此写一段故事，并附上图片。',
+    });
+    expect(after.imageIntentPromoted).toBe(true);
+    expect(after.tools.map((t) => t.function?.name)).toContain(
+      'image_generate'
+    );
+    expect(after.tools.map((t) => t.function?.name)).toContain(
+      'image_svg_generate'
+    );
+  });
+
   it('无裁剪（全部命中白名单）⇒ `trimmed=false` 且 `removedNames=[]`', () => {
     const r = run({ tools: [def('file_read'), def('grep')] });
     expect(r.trimmed).toBe(false);

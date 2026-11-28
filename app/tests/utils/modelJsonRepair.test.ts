@@ -53,6 +53,40 @@ describe('repairModelJson：修复语义不变', () => {
   });
 });
 
+/**
+ * 2026-11-28 真机（`session_mwz477wj251057474e`，10760 字符 SVG 写入）：
+ * `repairModelJson:pathFix all passes failed`，`lastParseError = Invalid escape character P`。
+ *
+ * 根因：旧实现逐字符判断「`\` 后是否合法」，对**已正确双写**的 `\\P`（`"E:\\PY\\…"`）
+ * 会把第二个 `\` 判成非法再双写 ⇒ `\\\P` ⇒ 自己把能修的串改坏。
+ */
+describe('repairModelJson：成对反斜杠不得被二次破坏', () => {
+  it('已双写的 \\\\ 后跟字母 ⇒ 路径语义原样保留', () => {
+    // 字面内容：{"p":"E:\\PY\\a.txt","x":"\P"} —— 路径合法、`\P` 非法
+    const broken = '{"p":"E:\\\\PY\\\\a.txt","x":"\\P"}';
+    const fixed = repairModelJson(broken);
+    expect(() => JSON.parse(fixed)).not.toThrow();
+    const parsed = JSON.parse(fixed) as { p: string; x: string };
+    expect(parsed.p).toBe('E:\\PY\\a.txt');
+    expect(parsed.x).toBe('\\P');
+    // 合法部分**逐字**保留（两处双写仍在，未被改成三反斜杠）
+    expect(fixed).toContain('E:\\\\PY\\\\a.txt');
+  });
+
+  it('大参数（与真机同量级）同样可修', () => {
+    const path = 'E:\\\\PY\\\\Documents\\\\CODES\\\\PY_APP\\\\output\\\\p.svg';
+    const body = 'x'.repeat(9000);
+    const broken = `{"file_path":"${path}","content":"${body}","bad":"\\P"}`;
+    const fixed = repairModelJson(broken);
+    expect(() => JSON.parse(fixed)).not.toThrow();
+    const parsed = JSON.parse(fixed) as { file_path: string };
+    // 解析后回到**单反斜杠**语义（`\\` 是 JSON 转义，不是三个反斜杠）
+    expect(parsed.file_path).toBe(
+      'E:\\PY\\Documents\\CODES\\PY_APP\\output\\p.svg'
+    );
+  });
+});
+
 describe('repairModelJson：日志分级与终态诊断字段', () => {
   it('终态失败必须带长度 / 前缀 / 最后一次解析错误', () => {
     expect(SRC).toContain('rawLength: raw.length');

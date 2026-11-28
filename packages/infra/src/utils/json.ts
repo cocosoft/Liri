@@ -34,6 +34,57 @@ export function jsonParse<T = unknown>(text: string): T | null {
  * @param raw AI 模型输出的原始 JSON 字符串
  * @returns 修复后的 JSON 字符串（若无法修复则返回原字符串）
  */
+/** 单个反斜杠后允许出现的 JSON 转义字符（`u` 另按四段十六进制判定） */
+const VALID_SINGLE_ESCAPE = new Set(['"', '/', 'b', 'f', 'n', 'r', 't']);
+
+/** `\uXXXX` 的四段十六进制（`u` 之后的 4 位） */
+const UNICODE_ESCAPE_BODY = /^[0-9a-fA-F]{4}$/;
+
+/**
+ * 把「非法的单个反斜杠」双写成 `\\`，**成对 `\\` 整体跳过**。
+ *
+ * 2026-11-28 真机（`session_mwz477wj251057474e`，10760 字符 SVG 写入）：
+ * 旧实现用 `raw.replace(/\\(?![\\"\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\')` 逐字符判断
+ * 「`\` 后是否合法」，对**已正确双写**的 `\\P`（`"E:\\PY\\…"`）会把第二个 `\` 判成
+ * 非法并再双写 ⇒ `\\\P` ⇒ 解析报 `Invalid escape character P`。
+ * 结果：本可修好的输出被修复器自己改坏，`file_write` 参数整份丢弃。
+ *
+ * 单遍扫描语义（与 JSON 转义文法一致）：
+ * - `\\\\`（成对）⇒ 原样保留，两个字符一起消费；
+ * - `\` + 合法单字符（`" / b f n r t`）⇒ 原样保留；
+ * - `\u` + 4 位十六进制 ⇒ 原样保留；
+ * - 其余（含**串尾孤立** `\`）⇒ 双写。
+ */
+function escapeInvalidBackslashes(raw: string): string {
+  let out = '';
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (ch !== '\\') {
+      out += ch;
+      continue;
+    }
+    const next = raw[i + 1];
+    if (next === '\\') {
+      out += '\\\\';
+      i++;
+      continue;
+    }
+    if (next !== undefined && VALID_SINGLE_ESCAPE.has(next)) {
+      out += ch;
+      continue;
+    }
+    if (
+      next === 'u' &&
+      UNICODE_ESCAPE_BODY.test(raw.slice(i + 2, i + 6))
+    ) {
+      out += ch;
+      continue;
+    }
+    out += '\\\\';
+  }
+  return out;
+}
+
 export function repairModelJson(raw: string): string {
   let lastError = '';
   // 先尝试直接解析，成功则无需修复
@@ -55,7 +106,7 @@ export function repairModelJson(raw: string): string {
   // 有效 JSON 转义: \" \\ \/ \b \f \n \r \t \uXXXX
   // 2026-11-20：`\u` 必须后跟 4 位十六进制才算合法 —— 旧正则把裸 `u` 也算进合法起点，
   // 导致 `\u12`（截断/模型写错）永远不被双写，三次修复全失败（真机 `Invalid unicode escape`）。
-  let repaired = raw.replace(/\\(?![\\"\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\');
+  let repaired = escapeInvalidBackslashes(raw);
 
   try {
     JSON.parse(repaired);

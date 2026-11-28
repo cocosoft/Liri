@@ -107,7 +107,10 @@ function elementToSvg(elem: CanvasElement): string {
     }
 
     case 'image': {
-      if (!elem.src) return '';
+      // 2026-11-28（真机 `[export] Input buffer contains unsupported image format`）：
+      // `src` 必须是**路径字符串**。模型偶尔传对象/数组 ⇒ `escapeXml` 会抛
+      // `String.prototype.replace is not a function`，且坏元素会把整张画布导出拖垮。
+      if (!elem.src || typeof elem.src !== 'string') return '';
       const w = elem.width ?? 100;
       const h = elem.height ?? 100;
       return `<image x="${elem.x}" y="${elem.y}" width="${w}" height="${h}" href="${escapeXml(elem.src)}"${opacity} />`;
@@ -125,6 +128,24 @@ function escapeXml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+/**
+ * 图片元素**尺寸**归一化（系统边界校验：模型可传 0 / 负数 / NaN / 字符串）。
+ *
+ * 非法值退回默认尺寸 —— 直接把 0/NaN 交给 sharp 会产出空图，进而在
+ * `pipeline.toBuffer()` 报 `Input buffer contains unsupported image format`
+ * （2026-11-28 真机 `tools:canvas [export]`）。
+ */
+function safeSize(value: unknown, fallback: number): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : fallback;
+}
+
+/** 图片元素**坐标**归一化（sharp 要求非负整数，`undefined`/`NaN` 会直接报参数错误） */
+function safeCoord(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
 }
 
 /**
@@ -187,9 +208,19 @@ export class CanvasInstance {
     this.touch();
     const { format, quality } = options;
 
+    // 2026-11-28 真机（`tools:canvas [export] Input buffer contains unsupported image format`）：
+    // **SVG 导出不需要任何位图渲染** —— 旧流程先建 sharp 画布、再用自己生成的 SVG 叠层
+    // 走 composite，而 composite 处理 SVG 依赖 libvips 的 librsvg 支持；缺该支持的环境里
+    // 只要画布含矩形/文字（几乎必然），导出就整单失败。直接出文档既正确也零依赖。
+    if (format === 'svg') {
+      return Buffer.from(this.toSvgString());
+    }
+
     // 分类元素：图片元素单独用 Sharp 处理，非图片元素用 SVG 层
+    // 2026-11-28：`src` 非字符串（模型传对象）不算图片元素 —— 否则 sharp 会一路吃到
+    // `pipeline.toBuffer()` 才报 `Input buffer contains unsupported image format`。
     const imageElements = this.elements.filter(
-      (e) => e.type === 'image' && e.src
+      (e) => e.type === 'image' && typeof e.src === 'string' && e.src.length > 0
     );
     const svgElements = this.elements.filter(
       (e) => e.type !== 'image' || !e.src
@@ -218,13 +249,26 @@ export class CanvasInstance {
     for (const elem of imageElements) {
       try {
         const buf = await getSharp()(elem.src!)
-          .resize(elem.width ?? 100, elem.height ?? 100)
+          .resize(safeSize(elem.width, 100), safeSize(elem.height, 100))
+          // 2026-11-28：`toBuffer()` 不指定输出格式时 sharp 返回**原始像素**，
+          // 作为 `composite({input})` 输入会报 `Input buffer contains unsupported image format`
+          // ⇒ 图片元素其实**从未**合成成功（被下方 catch 静默吞掉）。必须先编码成 PNG。
+          .png()
           .toBuffer();
+        // 尺寸归一化后仍可能是空图（源文件损坏 / 极端尺寸）⇒ 跳过该元素而不是让
+        // `pipeline.toBuffer()` 整张失败（真机该错误文案即来自 composite 的非法输入）。
+        if (buf.length === 0) {
+          logger.warn('CanvasInstance · 图片元素为空，跳过 composite', {
+            canvasId: this.canvasId,
+            src: elem.src,
+          });
+          continue;
+        }
         pipeline = pipeline.composite([
           {
             input: buf,
-            top: elem.y,
-            left: elem.x,
+            top: safeCoord(elem.y),
+            left: safeCoord(elem.x),
           },
         ]);
       } catch (err) {
@@ -236,17 +280,30 @@ export class CanvasInstance {
       }
     }
 
-    let result = await pipeline.toBuffer();
+    // 2026-11-28：`toBuffer()` 不带输出格式 ⇒ sharp 返回**原始像素缓冲**（width×height×channels），
+    // 再喂回 sharp 做 composite / 格式转换就会报
+    // `Input buffer contains unsupported image format`（真机 `tools:canvas [export]`，
+    // 空画布也会失败）。必须先编码成 PNG 再进入后续管道。
+    let result = await pipeline.png().toBuffer();
 
     // SVG overlay 叠加到画布上
+    // 2026-11-28：叠加层失败（环境缺 librsvg / SVG 内容非法）**降级**为"不含矢量层"的
+    // 结果并留痕 —— 整单失败会让用户连底色与已合成图片都拿不到（CS03：外部能力缺失可降级）。
     if (svgOverlay) {
-      const svgBuf = Buffer.from(svgOverlay);
-      result = await getSharp()(result)
-        .composite([{ input: svgBuf, top: 0, left: 0 }])
-        .toBuffer();
+      try {
+        const svgBuf = Buffer.from(svgOverlay);
+        result = await getSharp()(result)
+          .composite([{ input: svgBuf, top: 0, left: 0 }])
+          .toBuffer();
+      } catch (err) {
+        logger.warn('CanvasInstance · SVG 叠加层渲染失败，返回无矢量层的结果', {
+          canvasId: this.canvasId,
+          error: String(err),
+        });
+      }
     }
 
-    // 格式转换
+    // 格式转换（`svg` 已在上方直接返回）
     switch (format) {
       case 'png':
         return getSharp()(result)
@@ -260,9 +317,6 @@ export class CanvasInstance {
         return getSharp()(result)
           .webp({ quality: quality ?? 90 })
           .toBuffer();
-      case 'svg':
-        // SVG 直接输出：生成完整 SVG 文档
-        return Buffer.from(this.toSvgString());
       default:
         return getSharp()(result).png().toBuffer();
     }

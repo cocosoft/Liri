@@ -584,8 +584,17 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
         //  lifecycle.disconnect 仅断网关连接，还可能被重连继续）
         const originalStop: () => Promise<void> = raw.stop.bind(raw);
         const self = this;
+        // 2026-11-28：**不得**用对象展开复制 raw —— 展开会把 `get isListening()` 求值成
+        // 创建当刻的布尔快照（此后恒为 false，状态面板/健康检查因此一直显示"未监听"）。
+        // 这里显式转发为 getter，保持与原实现一致的实时语义。
         const wrapped: IChannelInboundAdapter = {
-          ...raw,
+          get protocol(): InboundProtocol {
+            return raw.protocol;
+          },
+          get isListening(): boolean {
+            return raw.isListening;
+          },
+          start: (config: Record<string, unknown>) => raw.start(config),
           stop: async () => {
             try {
               await originalStop();
@@ -596,6 +605,9 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
               );
             }
           },
+          setMessageHandler: (
+            handler: (message: MessageContext) => Promise<void>
+          ) => raw.setMessageHandler(handler),
         };
         this._inboundAdapter = wrapped;
       }

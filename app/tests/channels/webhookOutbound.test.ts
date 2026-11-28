@@ -14,7 +14,6 @@ import type { AddressInfo } from 'net';
 import {
   WebhookChannel,
   createWebhookChannel,
-  webhookChannel,
 } from '@modules/channels/webhook/WebhookChannel';
 
 interface Received {
@@ -91,45 +90,32 @@ describe('WebhookChannel.sendMessage — 真实 POST', () => {
 });
 
 describe('WebhookChannelPlugin.sendTextMessage — 如实回传 SendResult', () => {
+  // 2026-11-28：插件改为持有**自己按连接配置构造**的发送器（不再借 legacy 单例），
+  // 故这里用真实端点验证，不再 stub 单例。
   const plugin = createWebhookChannel();
-  const original = webhookChannel.sendMessage.bind(webhookChannel);
 
-  function stub(result: boolean): void {
-    webhookChannel.sendMessage = (async () => result) as never;
+  function send(target: string) {
+    return (
+      plugin as unknown as {
+        sendTextMessage: (
+          target: string,
+          content: string
+        ) => Promise<{ success: boolean; error?: string }>;
+      }
+    ).sendTextMessage(target, 'x');
   }
 
   it('底层投递成功 ⇒ {success:true}', async () => {
-    stub(true);
-    try {
-      const res = await (
-        plugin as unknown as {
-          sendTextMessage: (
-            target: string,
-            content: string
-          ) => Promise<{ success: boolean }>;
-        }
-      ).sendTextMessage(`${base}/ok`, 'x');
-      expect(res.success).toBe(true);
-    } finally {
-      webhookChannel.sendMessage = original;
-    }
+    received.length = 0;
+    const res = await send(`${base}/ok`);
+    expect(res.success).toBe(true);
+    expect(received).toHaveLength(1);
   });
 
   it('底层投递失败 ⇒ {success:false}（差异率分子可被观察到）', async () => {
-    stub(false);
-    try {
-      const res = await (
-        plugin as unknown as {
-          sendTextMessage: (
-            target: string,
-            content: string
-          ) => Promise<{ success: boolean; error?: string }>;
-        }
-      ).sendTextMessage(`${base}/fail`, 'x');
-      expect(res.success).toBe(false);
-      expect(res.error).toContain('webhook 投递失败');
-    } finally {
-      webhookChannel.sendMessage = original;
-    }
+    received.length = 0;
+    const res = await send(`${base}/fail`);
+    expect(res.success).toBe(false);
+    expect(res.error).toContain('webhook 投递失败');
   });
 });

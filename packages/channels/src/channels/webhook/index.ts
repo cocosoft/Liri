@@ -22,9 +22,10 @@
  * channels/webhook/index.ts - Webhook 通道导出
  */
 
+// 2026-11-28：不再导出进程级 `webhookChannel` 单例（它是 `enabled:false` 的空壳，
+// 入站从未启动过；插件的 `createInboundAdapter` 现在是唯一实现）。
 export {
   WebhookChannel,
-  webhookChannel,
   createWebhookChannel,
   webhookChannelPlugin,
 } from './WebhookChannel.js';
